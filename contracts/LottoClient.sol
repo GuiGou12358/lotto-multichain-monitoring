@@ -9,7 +9,7 @@ import "./Raffle.sol";
 import "./RewardManager.sol";
 import "./PhatRollupAnchor.sol";
 
-contract LottoClient is Config, Raffle, RewardManager, Ownable, AccessControl, PhatRollupAnchor {
+contract LottoClient is Config, Raffle, Ownable, AccessControl, PhatRollupAnchor {
 
 	event ParticipantRegistered(uint indexed _raffleId, address indexed _participant, uint[] _numbers);
 
@@ -24,7 +24,6 @@ contract LottoClient is Config, Raffle, RewardManager, Ownable, AccessControl, P
 
 
 	function participate(uint[] memory _numbers) public {
-
 		// check the status
 		require(status == Status.Ongoing, "Incorrect Status");
 		// check the numbers
@@ -38,25 +37,22 @@ contract LottoClient is Config, Raffle, RewardManager, Ownable, AccessControl, P
 
 
 	function setConfig(uint8 _nbNumbers, uint _minNumber, uint _maxNumber) public onlyRole(LOTTO_MANAGER_ROLE) {
-
 		// check the status
 		require(status == Status.NotStarted, "Incorrect Status");
-
 		// save the config
 		_setConfig(_nbNumbers, _minNumber, _maxNumber);
 	}
 
 	function startRaffle() public onlyRole(LOTTO_MANAGER_ROLE) {
-
+		// check the config is set
+		_ensureConfig();
 		// start the raffle
 		_startNewRaffle();
 	}
 
 	function completeRaffle() public onlyRole(LOTTO_MANAGER_ROLE) {
-
 		// stop the raffle
 		_stopCurrentRaffle();
-
 		// request the draw numbers
 		_pushMessage(abi.encode(currentRaffleId, RequestType.DRAW_NUMBERS, nbNumbers, minNumber, maxNumber));
 	}
@@ -90,7 +86,7 @@ contract LottoClient is Config, Raffle, RewardManager, Ownable, AccessControl, P
 			_startNewRaffle();
 		} else {
 			// save the winners in the reward manager
-			_addWinners(_winners);
+			//_addWinners(_winners);
 		}
 	}
 
