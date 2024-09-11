@@ -48,7 +48,7 @@ contract Raffle {
         // save the results
         results[_raffleId] = _results;
         // update the status
-        status == Status.WaitingWinners;
+        status = Status.WaitingWinners;
         // emit the event
         emit ResultReceived(_raffleId, _results);
     }
@@ -62,7 +62,7 @@ contract Raffle {
         // save the results
         winners[_raffleId] = _winners;
         // update the status
-        status == Status.Closed;
+        status = Status.Closed;
         // emit the event
         emit WinnersRevealed(_raffleId, _winners);
     }
