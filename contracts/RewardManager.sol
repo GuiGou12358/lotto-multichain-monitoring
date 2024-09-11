@@ -8,7 +8,6 @@ contract RewardManager {
     uint public totalPendingRewards;
     mapping(address => uint) public pendingRewards;
 
-
     event PendingRewards(address indexed _winner, uint _rewards);
     event ClaimedRewards(address indexed _winner, uint _rewards);
 
