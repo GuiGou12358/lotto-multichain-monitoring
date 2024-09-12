@@ -1,8 +1,7 @@
-//import { expect } from "chai";
+const {loadFixture} = require("@nomicfoundation/hardhat-toolbox/network-helpers");
+const { expect } = require("chai");
+const {ethers} = require("hardhat");
 
-const LottoClient = artifacts.require("LottoClient");
-
-const web3 = require("web3");
 
 // status
 const STATUS_NOT_STARTED = 0;
@@ -14,218 +13,156 @@ const STATUS_CLOSED = 4;
 const DRAW_NUMBERS = 0;
 const CHECK_WINNERS = 1;
 
-contract('Test raffle life cycle', (accounts) => {
+const abiCoder = ethers.AbiCoder.defaultAbiCoder();
 
+describe('Test raffle life cycle', () => {
 
-  it('set the config', async () => {
-    const lottoInstance = await LottoClient.deployed();
-    await lottoInstance.setConfig(4, 1, 50, {from: accounts[0]});
-  });
+  async function deployContractFixture(){
+    const [owner, attestor, addr1, addr2] = await ethers.getSigners();
+    const lottoInstance = await ethers.deployContract("LottoClient", [owner.address]);
+    return {lottoInstance, owner, attestor, addr1, addr2};
+  }
 
-  it('start the raffle', async () => {
-    const lottoInstance = await LottoClient.deployed();
+  it('configure and start the raffle', async () => {
+    const {lottoInstance, owner, attestor, addr1, addr2} = await loadFixture(deployContractFixture);
 
-    // check the status
-    let status = await lottoInstance.status();
-    assert.equal(status, STATUS_NOT_STARTED, "Incorrect status");
+    expect (await lottoInstance.nbNumbers()).to.equal(0);
+    expect (await lottoInstance.minNumber()).to.equal(0);
+    expect (await lottoInstance.maxNumber()).to.equal(0);
 
-    // start the raffle
-    await lottoInstance.startRaffle({from: accounts[0]});
-    // check the status
-    status = await lottoInstance.status();
-    assert.equal(status, STATUS_ONGOING, "Incorrect status");
-    // check the raffle id
-    const raffleId = await lottoInstance.currentRaffleId();
-    assert.equal(raffleId, 1, "Incorrect raffle id");
+    // set the raffle
+    await expect(lottoInstance.connect(owner).setConfig(4, 1, 50)).not.to.be.reverted;
 
-  });
+    expect (await lottoInstance.nbNumbers()).to.equal(4);
+    expect (await lottoInstance.minNumber()).to.equal(1);
+    expect (await lottoInstance.maxNumber()).to.equal(50);
 
-  it('participate 1', async () => {
-    const lottoInstance = await LottoClient.deployed();
-    await lottoInstance.participate([1, 2, 3, 50]);
-  });
-
-  it('participate 2', async () => {
-    const lottoInstance = await LottoClient.deployed();
-    await lottoInstance.participate([1, 2, 3, 50], {from: accounts[1]});
-    await lottoInstance.participate([10, 20, 30, 50], {from: accounts[1]});
-    await lottoInstance.participate([50, 2, 6, 1], {from: accounts[1]});
-  });
-
-  it('participate 3', async () => {
-    const lottoInstance = await LottoClient.deployed();
-    await lottoInstance.participate([1, 20, 3, 50], {from: accounts[2]});
-    await lottoInstance.participate([10, 2, 30, 50], {from: accounts[2]});
-    await lottoInstance.participate([50, 2, 6, 1], {from: accounts[2]});
-  });
-
-  it('should not participate (Incorrect nb numbers) ', async () => {
-    const lottoInstance = await LottoClient.deployed();
-
-    try {
-      await lottoInstance.participate([1, 2, 3, 4, 5])
-      assert(false, "we should not be able to participate with Incorrect nb numbers");
-    } catch (e) {
-      //console.log(e)
-    }
-    //expect(await lottoInstance.participate([1, 2, 3, 4, 5])).to.be.revertedWithCustomError("Incorrect nb numbers");
-
-  });
-
-  it('should not participate (Incorrect min value) ', async () => {
-    const lottoInstance = await LottoClient.deployed();
-
-    try {
-      await lottoInstance.participate([0, 2, 3, 4])
-      assert(false, "we should not be able to participate with value = 0");
-    } catch (e) {
-      //console.log(e)
-    }
-    //expect(await lottoInstance.participate([1, 2, 3, 4, 5])).to.be.revertedWith("Incorrect nb numbers");
-
-  });
-
-  it('should not participate (Incorrect max value) ', async () => {
-    const lottoInstance = await LottoClient.deployed();
-
-    try {
-      await lottoInstance.participate([51, 2, 3, 4])
-      assert(false, "we should not be able to participate with value = 51");
-    } catch (e) {
-      //console.log(e)
-    }
-    //expect(await lottoInstance.participate([1, 2, 3, 4, 5])).to.be.revertedWith("Incorrect nb numbers");
-
-  });
-
-  it('Complete the raffle 1', async () => {
-    const lottoInstance = await LottoClient.deployed();
-
-    // check the status
-    status = await lottoInstance.status();
-    assert.equal(status, STATUS_ONGOING, "Incorrect status");
+    // check the status and the raffle id
+    expect (await lottoInstance.status()).to.equal(STATUS_NOT_STARTED);
+    expect (await lottoInstance.currentRaffleId()).to.equal(0);
 
     // start the raffle
-    await lottoInstance.completeRaffle({from: accounts[0]});
-    status = await lottoInstance.status();
+    await expect(lottoInstance.startRaffle()).not.to.be.reverted;
 
-    // check the status
-    status = await lottoInstance.status();
-    assert.equal(status, STATUS_WAITING_RESULTS, "Incorrect status");
-    // check the raffle id
-    const raffleId = await lottoInstance.currentRaffleId();
-    assert.equal(raffleId, 1, "Incorrect raffle id");
+    // check the status and the raffle id
+    expect (await lottoInstance.status()).to.equal(STATUS_ONGOING);
+    expect (await lottoInstance.currentRaffleId()).to.equal(1);
+
   });
 
-  it('Grant Account 1 as attestor', async () => {
-    const lottoInstance = await LottoClient.deployed();
-    await lottoInstance.registerAttestor(accounts[1], {from: accounts[0]});
+  async function startRaffleFixture(){
+    const {lottoInstance, owner, attestor, addr1, addr2} = await deployContractFixture();
+    await lottoInstance.connect(owner).setConfig(4, 1, 50);
+    await lottoInstance.connect(owner).startRaffle();
+    await lottoInstance.connect(owner).registerAttestor(attestor.address);
+    return {lottoInstance, owner, attestor, addr1, addr2};
+  }
+
+  it('participate', async () => {
+    const {lottoInstance, owner, attestor, addr1, addr2} = await loadFixture(startRaffleFixture);
+    await expect(lottoInstance.connect(owner).participate([1, 2, 3, 50])).not.to.be.reverted;
+    await expect(lottoInstance.connect(attestor).participate([1, 2, 3, 50])).not.to.be.reverted;
+    await expect(lottoInstance.connect(addr1).participate([1, 2, 3, 50])).not.to.be.reverted;
+    await expect(lottoInstance.connect(addr1).participate([1, 2, 3, 50])).not.to.be.reverted;
+    await expect(lottoInstance.connect(addr1).participate([10, 20, 30, 50])).not.to.be.reverted;
+    await expect(lottoInstance.connect(addr2).participate([50, 2, 6, 1])).not.to.be.reverted;
   });
 
-  it('Attestor submits result 1', async () => {
-    const lottoInstance = await LottoClient.deployed();
+  it('should not be able to participate', async () => {
+    const {lottoInstance, owner, attestor, addr1, addr2} = await loadFixture(startRaffleFixture);
+    await expect(lottoInstance.participate([1, 2, 3, 4, 5])).to.be.revertedWith('Incorrect nb numbers');
+    await expect(lottoInstance.participate([1, 2, 3])).to.be.revertedWith('Incorrect nb numbers');
+    await expect(lottoInstance.participate([0, 2, 3, 5])).to.be.revertedWith('Number too low');
+    await expect(lottoInstance.participate([1, 2, 3, 51])).to.be.revertedWith('Number too high');
+  });
+
+
+  it('Complete the raffle, submit the results', async () => {
+    const {lottoInstance, owner, attestor, addr1, addr2} = await loadFixture(startRaffleFixture);
+
+    // check before
+    expect(await lottoInstance.status()).to.equal(STATUS_ONGOING);
+
+    // complete the raffle
+    await expect(lottoInstance.connect(owner).completeRaffle()).not.to.be.reverted;
+
+    // check after
+    expect(await lottoInstance.status()).to.equal(STATUS_WAITING_RESULTS);
+    expect(await lottoInstance.currentRaffleId()).to.equal(1);
+
+    // send the results
     const raffleId = 1;
-    const request = web3.eth.abi.encodeParameters(['uint8', 'uint', 'uint'], [4, 1, 50]);
-    const response = web3.eth.abi.encodeParameters(['uint[]'], [[33, 47, 5, 6]]);
-    const action = web3.eth.abi.encodeParameters(['uint', 'uint8', 'bytes', 'bytes'], [raffleId, DRAW_NUMBERS, request, response]);
-    const reply = '0x0' + action.substring(2);
-    console.log(reply)
-    //await debug(lottoInstance.rollupU256CondEq([], [], [], [], [action], {from: accounts[1]}));
-    await lottoInstance.rollupU256CondEq([], [], [], [], [reply], {from: accounts[1]});
+    const request = abiCoder.encode(['uint8', 'uint', 'uint'], [4, 1, 50]);
+    const response = abiCoder.encode(['uint[]'], [[33, 47, 5, 6]]);
+    const action = abiCoder.encode(['uint', 'uint8', 'bytes', 'bytes'], [raffleId, DRAW_NUMBERS, request, response]);
+    const reply = '0x00' + action.substring(2);
+    await expect(lottoInstance.connect(attestor).rollupU256CondEq([], [], [], [], [reply])).not.to.be.reverted;
 
-    // check the status
-    const status = await lottoInstance.status();
-    assert.equal(status, STATUS_WAITING_WINNERS, "Incorrect status");
+    // checks
+    expect(await lottoInstance.status()).to.equal(STATUS_WAITING_WINNERS);
+    expect(await lottoInstance.currentRaffleId()).to.equal(1);
+
   });
+
+
+  async function waitingWinnersFixture(){
+    const {lottoInstance, owner, attestor, addr1, addr2} = await startRaffleFixture();
+    // complete the raffle
+    await lottoInstance.connect(owner).completeRaffle();
+    // send the results
+    const raffleId = 1;
+    const request = abiCoder.encode(['uint8', 'uint', 'uint'], [4, 1, 50]);
+    const response = abiCoder.encode(['uint[]'], [[33, 47, 5, 6]]);
+    const action = abiCoder.encode(['uint', 'uint8', 'bytes', 'bytes'], [raffleId, DRAW_NUMBERS, request, response]);
+    const reply = '0x00' + action.substring(2);
+    await lottoInstance.connect(attestor).rollupU256CondEq([], [], [], [], [reply]);
+    return {lottoInstance, owner, attestor, addr1, addr2};
+  }
+
 
   it('Attestor submits no winner', async () => {
-    const lottoInstance = await LottoClient.deployed();
+    const {lottoInstance, owner, attestor, addr1, addr2} = await loadFixture(waitingWinnersFixture);
 
-    // check the raffle id
+    // checks before
+    expect(await lottoInstance.status()).to.equal(STATUS_WAITING_WINNERS);
+    expect(await lottoInstance.currentRaffleId()).to.equal(1);
+
     const raffleId = 1;
-    assert.equal(raffleId, await lottoInstance.currentRaffleId(), "Incorrect raffle id");
+    const request = abiCoder.encode(['uint[]'], [[33, 47, 5, 6]]);
+    const response = abiCoder.encode(['address[]'], [[]]);
+    const action = abiCoder.encode(['uint', 'uint8', 'bytes', 'bytes'], [raffleId, CHECK_WINNERS, request, response]);
+    const reply = '0x00' + action.substring(2);
+    await expect(lottoInstance.connect(attestor).rollupU256CondEq([], [], [], [], [reply])).not.to.be.reverted;
 
-    const request = web3.eth.abi.encodeParameters(['uint[]'], [[33, 47, 5, 6]]);
-    const response = web3.eth.abi.encodeParameters(['address[]'], [[]]);
-    const action = web3.eth.abi.encodeParameters(['uint', 'uint8', 'bytes', 'bytes'], [raffleId, CHECK_WINNERS, request, response]);
-    const reply = '0x0' + action.substring(2);
-    console.log(reply)
-    await lottoInstance.rollupU256CondEq([], [], [], [], [reply], {from: accounts[1]});
-
-    // check the status  => we go back to ongoing
-    const status = await lottoInstance.status();
-    assert.equal(status, STATUS_ONGOING, "Incorrect status");
-    // check the raffle id
-    assert.equal(2, await lottoInstance.currentRaffleId(), "Incorrect raffle id");
-
+    // checks
+    expect(await lottoInstance.status()).to.equal(STATUS_ONGOING);
+    expect(await lottoInstance.currentRaffleId()).to.equal(2);
   });
 
-  it('participate 4', async () => {
-    const lottoInstance = await LottoClient.deployed();
-    await lottoInstance.participate([1, 20, 3, 50], {from: accounts[2]});
-    await lottoInstance.participate([10, 2, 30, 50], {from: accounts[2]});
-    await lottoInstance.participate([50, 2, 6, 1], {from: accounts[2]});
-  });
+  it('Attestor submits 1 winner', async () => {
+    const {lottoInstance, owner, attestor, addr1, addr2} = await loadFixture(waitingWinnersFixture);
 
+    // checks before
+    expect(await lottoInstance.status()).to.equal(STATUS_WAITING_WINNERS);
+    expect(await lottoInstance.currentRaffleId()).to.equal(1);
 
-  it('Complete the raffle 2', async () => {
-    const lottoInstance = await LottoClient.deployed();
+    const raffleId = 1;
+    const request = abiCoder.encode(['uint[]'], [[33, 47, 5, 6]]);
+    const response = abiCoder.encode(['address[]'], [[addr1.address]]);
+    const action = abiCoder.encode(['uint', 'uint8', 'bytes', 'bytes'], [raffleId, CHECK_WINNERS, request, response]);
+    const reply = '0x00' + action.substring(2);
+    await expect(lottoInstance.connect(attestor).rollupU256CondEq([], [], [], [], [reply])).not.to.be.reverted;
 
-    await lottoInstance.completeRaffle({from: accounts[0]});
-    status = await lottoInstance.status();
-
-    // check the status
-    status = await lottoInstance.status();
-    assert.equal(status, STATUS_WAITING_RESULTS, "Incorrect status");
-  });
-
-  it('Attestor submits result 2', async () => {
-    const lottoInstance = await LottoClient.deployed();
-    const raffleId = 2;
-    const request = web3.eth.abi.encodeParameters(['uint8', 'uint', 'uint'], [4, 1, 50]);
-    const response = web3.eth.abi.encodeParameters(['uint[]'], [[50, 2, 6, 1]]);
-    const action = web3.eth.abi.encodeParameters(['uint', 'uint8', 'bytes', 'bytes'], [raffleId, DRAW_NUMBERS, request, response]);
-    const reply = '0x0' + action.substring(2);
-    await lottoInstance.rollupU256CondEq([], [], [], [], [reply], {from: accounts[1]});
-
-    // check the status
-    const status = await lottoInstance.status();
-    assert.equal(status, STATUS_WAITING_WINNERS, "Incorrect status");
-  });
-
-  it('Attestor submits a winner', async () => {
-    const lottoInstance = await LottoClient.deployed();
-
-    const raffleId = 2;
-    assert.equal(raffleId, await lottoInstance.currentRaffleId(), "Incorrect raffle id");
-
-    const request = web3.eth.abi.encodeParameters(['uint[]'], [[50, 2, 6, 1]]);
-    const response = web3.eth.abi.encodeParameters(['address[]'], [[accounts[2]]]);
-    const action = web3.eth.abi.encodeParameters(['uint', 'uint8', 'bytes', 'bytes'], [raffleId, CHECK_WINNERS, request, response]);
-    const reply = '0x0' + action.substring(2);
-    await lottoInstance.rollupU256CondEq([], [], [], [], [reply], {from: accounts[1]});
-
-    // check the status  => closed
-    const status = await lottoInstance.status();
-    assert.equal(status, STATUS_CLOSED, "Incorrect status");
-    // check the raffle id
-    assert.equal(raffleId, await lottoInstance.currentRaffleId(), "Incorrect raffle id");
+    // checks
+    expect(await lottoInstance.status()).to.equal(STATUS_CLOSED);
+    expect(await lottoInstance.currentRaffleId()).to.equal(1);
   });
 
 
-});
-
-contract('Test authorization', (accounts) => {
   it('should not start the raffle (unauthorized)', async () => {
-    const lottoInstance = await LottoClient.deployed();
-    try {
-      await lottoInstance.startRaffle({from: accounts[0]});
-      assert(false, "we should not be able to start with unauthorized account");
-    } catch (e) {
-      //console.log(e)
-    }
-    //expect(await lottoInstance.startRaffle({from: accounts[1]})).to.be.revertedWithCustomError("Custom error (could not decode)");
-
+    const {lottoInstance, owner, attestor, addr1, addr2} = await loadFixture(deployContractFixture);
+    await expect(lottoInstance.connect(attestor).startRaffle()).to.be.reverted; //With('Custom error (could not decode)');
+    await expect(lottoInstance.connect(addr1).startRaffle()).to.be.reverted; //With('Custom error (could not decode)');
   });
-});
 
+});
