@@ -10,7 +10,6 @@ async function main() {
 
   const lottoInstance = await ethers.getContractAt("LottoClient", contractAddress);
 
-  console.log("lottoInstance: %", lottoInstance);
   await lottoInstance.connect(owner).setConfig(4, 1, 50);
   await lottoInstance.connect(owner).startRaffle();
   //await lottoInstance.connect(owner).registerAttestor(attestor.address);
