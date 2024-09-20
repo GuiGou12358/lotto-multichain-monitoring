@@ -1,21 +1,17 @@
-import hre, {ethers} from "hardhat";
-import {expect} from "chai";
-
-// result type
-const DRAW_NUMBERS = 0;
-const CHECK_WINNERS = 1;
+import {ethers} from "hardhat";
+import {contractAddress, hex} from "./common";
 
 const abiCoder = ethers.AbiCoder.defaultAbiCoder();
 
 async function main() {
 
-  const contractAddress = "0x177b0b863b80Add7cC9824e9232a9a2dcbc7986a";
   console.log("Contract's address: %", contractAddress);
 
   const [owner] = await ethers.getSigners();
   const lottoInstance = await ethers.getContractAt("LottoClient", contractAddress);
 
-  const action = abiCoder.encode(['uint32'], [4]);
+  const head = await lottoInstance.queueGetUint(hex("_head"));
+  const action = abiCoder.encode(['uint32'], [head + BigInt(1)]);
   const set_queue_head = '0x01' + action.substring(2);
   await lottoInstance.connect(owner).rollupU256CondEq([], [], [], [], [set_queue_head]);
 
