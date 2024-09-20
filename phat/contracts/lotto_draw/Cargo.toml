@@ -24,13 +24,13 @@ phat_offchain_rollup = { git = "https://github.com/GuiGou12358/phat-offchain-rol
 pink-web3 = { version = "0.22.0", default-features = false, features = ["pink", "signing"] }
 ethabi = { version = "18.0.0", default-features = false, features = ["serde", "rlp"] }
 pink-kv-session = "0.2.0"
+hex = { version = "0.4", default-features = false }
 
 [dev-dependencies]
 dotenvy = "0.15"
 env_logger = "0.10.0"
 pink-extension-runtime = { version = "0.4.6", default-features = false }
 hex-literal = "0.4.1"
-hex = { version = "0.4", default-features = false }
 
 [build-dependencies]
 

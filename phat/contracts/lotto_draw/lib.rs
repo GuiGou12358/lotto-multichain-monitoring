@@ -19,11 +19,11 @@ mod lotto_draw {
     use scale::{Decode, Encode};
     use serde::Deserialize;
     use serde_json_core;
-    use sp_core::crypto::{AccountId32, Ss58Codec};
 
     pub type RaffleId = u128;
     pub type Number = u128;
     pub type ContractId = [u8; 20];
+    pub type AccountId20 = [u8; 20];
 
     /// Message to request the lotto lotto_draw or the list of winners
     /// message pushed in the queue by the Ink! smart contract and read by the offchain rollup
@@ -73,7 +73,7 @@ mod lotto_draw {
         /// list of numbers
         Numbers(Vec<Number>),
         /// list of winners
-        Winners(Vec<AccountId>),
+        Winners(Vec<AccountId20>),
     }
 
     /// DTO use for serializing and deserializing the json
@@ -141,6 +141,7 @@ mod lotto_draw {
         FailedToCallRollup,
         FailedToDecode,
         FailedToGetStorage,
+        FailedToEncodeResponse,
         // error when checking the winners
         NoNumber,
         IndexerNotConfigured,
@@ -181,19 +182,19 @@ mod lotto_draw {
             }
         }
 
-        /// Gets the owner of the contract
+        /// Get the owner of the contract
         #[ink(message)]
         pub fn owner(&self) -> AccountId {
             self.owner
         }
 
-        /// Gets the attestor address used by this rollup
+        /// Get the attestor address used by this rollup
         #[ink(message)]
         pub fn get_attest_address(&self) -> Vec<u8> {
             signing::get_public_key(&self.attest_key, signing::SigType::Sr25519)
         }
 
-        /// Gets the ecdsa address used by this rollup in the meta transaction
+        /// Get the ecdsa address used by this rollup in the meta transaction
         #[ink(message)]
         pub fn get_attest_ecdsa_address(&self) -> Vec<u8> {
             use ink::env::hash;
@@ -203,7 +204,7 @@ mod lotto_draw {
             output.to_vec()
         }
 
-        /// Gets the sender address used by this rollup (in case of meta-transaction)
+        /// Get the sender address used by this rollup (in case of meta-transaction)
         #[ink(message)]
         pub fn get_sender_address(&self) -> Option<Vec<u8>> {
             if let Some(Some(sender_key)) =
@@ -214,6 +215,24 @@ mod lotto_draw {
             } else {
                 None
             }
+        }
+
+        /// Set attestor key.
+        ///
+        /// For dev purpose.
+        #[ink(message)]
+        pub fn set_attest_key(&mut self, attest_key: Option<Vec<u8>>) -> Result<()> {
+            self.attest_key = match attest_key {
+                Some(key) => key.try_into().or(Err(ContractError::InvalidKeyLength))?,
+                None => {
+                    const NONCE: &[u8] = b"attest_key";
+                    let private_key = signing::derive_sr25519_key(NONCE);
+                    private_key[..32]
+                        .try_into()
+                        .or(Err(ContractError::InvalidKeyLength))?
+                }
+            };
+            Ok(())
         }
 
         /// Gets the config of the target consumer contract
@@ -272,11 +291,7 @@ mod lotto_draw {
         #[ink(message)]
         pub fn answer_request(&self) -> Result<Option<Vec<u8>>> {
             let config = self.ensure_client_configured()?;
-
-            ink::env::debug_println!("connect before");
-
             let mut client = connect(config)?;
-            ink::env::debug_println!("connect after");
 
             // Get a request if presents
             let raw_data = client
@@ -287,10 +302,11 @@ mod lotto_draw {
                 .ok_or(ContractError::NoRequestInQueue)?;
 
             let request = decode_message(&raw_data)?;
-
             let response = self.handle_request(request)?;
+            let action = encode_response(&response)?;
+
             // Attach an action to the tx by:
-            client.action(Action::Reply(response.encode()));
+            client.action(Action::Reply(action));
 
             maybe_submit_tx(client, &self.attest_key, config.sender_key.as_ref())
         }
@@ -454,7 +470,7 @@ mod lotto_draw {
             &self,
             raffle_id: RaffleId,
             numbers: &Vec<Number>,
-        ) -> Result<Vec<AccountId>> {
+        ) -> Result<Vec<AccountId20>> {
             info!(
                 "Request received to get the winners for raffle id {raffle_id} and numbers {numbers:?} "
             );
@@ -508,12 +524,11 @@ mod lotto_draw {
             let mut winners = Vec::new();
             for w in result.data.participations.nodes.iter() {
                 // build the accountId from the string address
-                let account_id = AccountId32::from_ss58check(w.accountId)
-                    .or(Err(ContractError::InvalidSs58Address))?;
-                let address_hex: [u8; 32] = scale::Encode::encode(&account_id)
+                let account_id : AccountId20 = hex::decode(w.accountId)
+                    .expect("hex decode failed")
                     .try_into()
-                    .or(Err(ContractError::InvalidKeyLength))?;
-                winners.push(AccountId::from(address_hex));
+                    .expect("incorrect length");
+                winners.push(account_id);
             }
 
             info!("Winners: {winners:02x?}");
@@ -636,6 +651,67 @@ mod lotto_draw {
         Err(ContractError::FailedToDecode)
     }
 
+
+    fn encode_response(message: &LottoResponseMessage) -> Result<Vec<u8>> {
+
+        ink::env::debug_println!("Response Message: {message:?}");
+
+        let raffle_id = message.request.raffle_id;
+
+        const RESPONSE_DRAW_NUMBERS : u8 = 0;
+        const RESPONSE_CHECK_WINNERS : u8 = 1;
+
+        let encoded = match (&message.request.request, &message.response) {
+            (Request::DrawNumbers(nb_numbers, smallest_number, biggest_number), Response::Numbers(numbers)) => {
+                let numbers : Vec<Token> = numbers.into_iter().map(|n: &Number| Token::Uint((*n).into())).collect();
+
+/*
+                const request = abiCoder.encode(['uint8', 'uint', 'uint'], [4, 1, 50]);
+                const response = abiCoder.encode(['uint[]'], [[40, 50, 2, 15]]);
+                const action = abiCoder.encode(['uint', 'uint8', 'bytes', 'bytes'], [raffleId, DRAW_NUMBERS, request, response]);
+ */
+                let request = ethabi::encode(&[
+                    Token::Uint((*nb_numbers).into()),
+                    Token::Uint((*smallest_number).into()),
+                    Token::Uint((*biggest_number).into()),
+                ]);
+                let response = ethabi::encode(&[
+                    Token::Array(numbers),
+                ]);
+                ethabi::encode(&[
+                    Token::Uint(raffle_id.into()),
+                    Token::Uint(RESPONSE_DRAW_NUMBERS.into()),
+                    Token::Bytes(request),
+                    Token::Bytes(response),
+                ])
+            },
+            (Request::CheckWinners(ref numbers), Response::Winners(winners)) => {
+                let numbers : Vec<Token> = numbers.into_iter().map(|n: &Number| Token::Uint((*n).into())).collect();
+                let winners : Vec<Token> = winners.into_iter().map(|a: &AccountId20| Token::Address((*a).into())).collect();
+/*
+                const request = abiCoder.encode(['uint[]'], [[33, 47, 5, 6]]);
+                const response = abiCoder.encode(['address[]'], [[]]);
+                const action = abiCoder.encode(['uint', 'uint8', 'bytes', 'bytes'], [raffleId, CHECK_WINNERS, request, response]);
+  */
+                let request = ethabi::encode(&[
+                    Token::Array(numbers),
+                ]);
+                let response = ethabi::encode(&[
+                    Token::Array(winners),
+                ]);
+
+                ethabi::encode(&[
+                    Token::Uint(raffle_id.into()),
+                    Token::Uint(RESPONSE_CHECK_WINNERS.into()),
+                    Token::Bytes(request),
+                    Token::Bytes(response),
+                ])
+            },
+            _ => return Err(ContractError::FailedToEncodeResponse),
+        };
+        Ok(encoded)
+    }
+
     fn maybe_submit_tx(
         client: EvmRollupClient,
         attest_key: &[u8; 32],
@@ -676,7 +752,7 @@ mod lotto_draw {
             /// The rollup anchor address on the target blockchain
             contract_id: ContractId,
             /// When we want to manually set the attestor key for signing the message (only dev purpose)
-            //attest_key: Vec<u8>,
+            attest_key: Vec<u8>,
             /// When we want to use meta tx
             sender_key: Option<Vec<u8>>,
         }
@@ -692,7 +768,7 @@ mod lotto_draw {
                 .expect("hex decode failed")
                 .try_into()
                 .expect("incorrect length");
-            //let attest_key = hex::decode(get_env("ATTEST_KEY")).expect("hex decode failed");
+            let attest_key = hex::decode(get_env("ATTEST_KEY")).expect("hex decode failed");
             let sender_key = std::env::var("SENDER_KEY")
                 .map(|s| hex::decode(s).expect("hex decode failed"))
                 .ok();
@@ -700,7 +776,7 @@ mod lotto_draw {
             EnvVars {
                 rpc: rpc.to_string(),
                 contract_id: contract_id.into(),
-                //attest_key,
+                attest_key,
                 sender_key,
             }
         }
@@ -709,7 +785,7 @@ mod lotto_draw {
             let EnvVars {
                 rpc,
                 contract_id,
-                //attest_key,
+                attest_key,
                 sender_key,
             } = config();
 
@@ -721,7 +797,7 @@ mod lotto_draw {
             lotto
                 .config_indexer("https://query.substrate.fi/lotto-subquery-shibuya".to_string())
                 .unwrap();
-            //lotto.set_attest_key(Some(attest_key)).unwrap();
+            lotto.set_attest_key(Some(attest_key)).unwrap();
 
             lotto
         }
@@ -952,31 +1028,30 @@ mod lotto_draw {
 
 
         #[ink::test]
-        fn encode_response_numbers() {
+        fn encode_response() {
             let _ = env_logger::try_init();
             pink_extension_runtime::mock_ext::mock_all_ext();
 
-            let lotto = init_contract();
-
-            //Request received for raffle 6 - draw 4 numbers between 1 and 50
-            // Numbers: [4, 49, 41, 16]
-
-            let raffle_id = 6;
-            let numbers = vec![4, 49, 41, 16];
+            let raffle_id = 3;
+            let numbers = vec![43, 50, 2, 15];
 
             let response = LottoResponseMessage {
                 request: LottoRequestMessage {raffle_id, request: Request::DrawNumbers(4, 1, 50)},
                 response: Response::Numbers(numbers.clone()),
             };
-            let encoded_response = response.encode();
+            let encoded_response = super::encode_response(&response).expect("Failed to encode response");
             ink::env::debug_println!("Reply response numbers: {encoded_response:02x?}");
+            let expected : Vec<u8> = hex::decode("0000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000003200000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000002b00000000000000000000000000000000000000000000000000000000000000320000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000f").expect("hex decode failed");
+            assert_eq!(expected, encoded_response);
 
             let response = LottoResponseMessage {
                 request: LottoRequestMessage {raffle_id, request: Request::CheckWinners(numbers)},
                 response: Response::Winners(vec![]),
             };
-            let encoded_response = response.encode();
+            let encoded_response = super::encode_response(&response).expect("Failed to encode response");
             ink::env::debug_println!("Reply response winners: {encoded_response:02x?}");
+            let expected : Vec<u8> = hex::decode("000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000016000000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000002b00000000000000000000000000000000000000000000000000000000000000320000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000f000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000").expect("hex decode failed");
+            assert_eq!(expected, encoded_response);
 
         }
 
