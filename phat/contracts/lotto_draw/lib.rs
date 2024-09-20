@@ -5,7 +5,7 @@ extern crate core;
 
 #[ink::contract(env = pink_extension::PinkEnvironment)]
 mod lotto_draw {
-    use alloc::{vec, vec::Vec};
+    use alloc::vec::Vec;
     use alloc::boxed::Box;
     use ink::prelude::{format, string::String};
     use phat_offchain_rollup::{clients::evm::EvmRollupClient, Action};
@@ -22,7 +22,7 @@ mod lotto_draw {
     use sp_core::crypto::{AccountId32, Ss58Codec};
 
     pub type RaffleId = u128;
-    pub type Number = u128; //u16
+    pub type Number = u128;
     pub type ContractId = [u8; 20];
 
     /// Message to request the lotto lotto_draw or the list of winners
@@ -49,7 +49,7 @@ mod lotto_draw {
         /// arg1: number of numbers for the lotto_draw
         /// arg2:  smallest number for the lotto_draw
         /// arg2:  biggest number for the lotto_draw
-        DrawNumbers(u128, Number, Number), // DrawNumbers(u8, Number, Number)
+        DrawNumbers(u32, Number, Number),
         /// request to check if there is a winner for the given numbers
         CheckWinners(Vec<Number>),
     }
@@ -272,10 +272,13 @@ mod lotto_draw {
         #[ink(message)]
         pub fn answer_request(&self) -> Result<Option<Vec<u8>>> {
             let config = self.ensure_client_configured()?;
+
+            ink::env::debug_println!("connect before");
+
             let mut client = connect(config)?;
+            ink::env::debug_println!("connect after");
 
             // Get a request if presents
-            //let request: LottoRequestMessage = client
             let raw_data = client
                 .session()
                 .pop()
@@ -283,75 +286,7 @@ mod lotto_draw {
                 .or(Err(ContractError::FailedToGetStorage))?
                 .ok_or(ContractError::NoRequestInQueue)?;
 
-            ink::env::debug_println!("Received raw request: {raw_data:02x?}");
-
-            /*
-            (uint _raffleId, RequestType _requestType, bytes memory _request, bytes memory _response) = abi.decode(_action, (uint, RequestType, bytes, bytes));
-
-            require(_requestType == RequestType.DRAW_NUMBERS ||  _requestType == RequestType.CHECK_WINNERS, "cannot parse action");
-            if (_requestType == RequestType.DRAW_NUMBERS){
-                (uint8 _nbNumbers, uint _minNumber, uint _maxNumber) = abi.decode(_request, (uint8, uint , uint));
-                (uint[] memory _numbers) = abi.decode(_response, (uint[]));
-                _innerSetResults(_raffleId, _nbNumbers, _minNumber, _maxNumber, _numbers);
-            } else if (_requestType == RequestType.CHECK_WINNERS){
-                (uint[] memory _numbers) = abi.decode(_request, (uint[]));
-                (address[] memory _winners) = abi.decode(_response, (address[]));
-                _innerSetWinners(_raffleId, _numbers, _winners);
-            }
-             */
-            let request : LottoRequestMessage ;
-
-            // Decode the queue data by ethabi (uint, uint8, bytes)
-            let Ok(decoded) = ethabi::decode(&[ParamType::Uint(32), ParamType::Uint(1), ParamType::Bytes], &raw_data) else {
-                return Err(ContractError::FailedToDecode);
-            };
-
-            let [Token::Uint(raffle_id), Token::Uint(request_type), Token::Bytes(raw_request)] = decoded.as_slice() else {
-                return Err(ContractError::FailedToDecode);
-            };
-
-            ink::env::debug_println!("Received request with raffle_id {raffle_id} and request_type {request_type}");
-            let raffle_id = raffle_id.as_u128();
-            let request_type = request_type.as_u128();
-
-            if request_type == 0 { // DRAW_NUMBERS
-                // Decode by ethabi (uint8, uint , uint)
-                let Ok(request_decoded) = ethabi::decode(&[ParamType::Uint(1), ParamType::Uint(32), ParamType::Uint(32)], &raw_request) else {
-                    return Err(ContractError::FailedToDecode);
-                };
-                let [Token::Uint(nb_numbers), Token::Uint(min_number), Token::Uint(max_number)] = request_decoded.as_slice() else {
-                    return Err(ContractError::FailedToDecode);
-                };
-                ink::env::debug_println!("Received request to draw {nb_numbers} numbers between {min_number} and {max_number}");
-
-                let nb_numbers = nb_numbers.as_u128();
-                let min_number = min_number.as_u128();
-                let max_number = max_number.as_u128();
-
-                request = LottoRequestMessage {
-                    raffle_id,
-                    request: Request::DrawNumbers(nb_numbers, min_number, max_number),
-                };
-            } else if request_type == 1 { // CHECK_WINNERS
-                // Decode by ethabi (uint[])
-                let Ok(request_decoded) = ethabi::decode(&[ParamType::Array(Box::new(ParamType::Uint(32)))], &raw_request) else {
-                    return Err(ContractError::FailedToDecode);
-                };
-                let [Token::Array(numbers)] = request_decoded.as_slice() else {
-                    return Err(ContractError::FailedToDecode);
-                };
-                //let numbers = numbers.into_iter().map(|n: &ethabi::Uint| ethabi::Uint::as_u128).collect();
-
-                //ink::env::debug_println!("Received request to check winners for numbers {numbers?}");
-                let numbers = vec![];
-
-                request = LottoRequestMessage {
-                    raffle_id,
-                    request: Request::CheckWinners(numbers),
-                };
-            } else {
-                return Err(ContractError::FailedToDecode);
-            }
+            let request = decode_message(&raw_data)?;
 
             let response = self.handle_request(request)?;
             // Attach an action to the tx by:
@@ -388,7 +323,7 @@ mod lotto_draw {
             contract_id: ContractId,
             raffle_id: RaffleId,
             //nb_numbers: u8,
-            nb_numbers: u128,
+            nb_numbers: u32,
             smallest_number: Number,
             biggest_number: Number,
             numbers: Vec<Number>,
@@ -400,8 +335,8 @@ mod lotto_draw {
                 return Err(ContractError::InvalidContractId);
             }
 
-            let mut client = connect(config)?;
 /*
+            let mut client = connect(config)?;
             const LAST_RAFFLE_FOR_VERIF: u32 = ink::selector_id!("LAST_RAFFLE_FOR_VERIF");
 
             let last_raffle: RaffleId = client
@@ -429,8 +364,7 @@ mod lotto_draw {
         pub fn inner_verify_numbers(
             &self,
             raffle_id: RaffleId,
-            //nb_numbers: u8,
-            nb_numbers: u128,
+            nb_numbers: u32,
             smallest_number: Number,
             biggest_number: Number,
             numbers: Vec<Number>,
@@ -453,8 +387,7 @@ mod lotto_draw {
         fn inner_get_numbers(
             &self,
             raffle_id: RaffleId,
-            nb_numbers: u128,
-            //nb_numbers: u8,
+            nb_numbers: u32,
             smallest_number: Number,
             biggest_number: Number,
         ) -> Result<Vec<Number>> {
@@ -623,9 +556,84 @@ mod lotto_draw {
             Ok(client) => Ok(client),
             Err(e) => {
                 error!("Error : {:?}", e);
+                ink::env::debug_println!("Error : {:?}", e);
                 Err(ContractError::FailedToCreateClient)
             }
         }
+    }
+
+    fn decode_message(raw_data: &[u8]) -> Result<LottoRequestMessage> {
+
+        ink::env::debug_println!("Received raw request: {raw_data:02x?}");
+
+        /*
+        (uint _raffleId, RequestType _requestType, bytes memory _request, bytes memory _response) = abi.decode(_action, (uint, RequestType, bytes, bytes));
+
+        require(_requestType == RequestType.DRAW_NUMBERS ||  _requestType == RequestType.CHECK_WINNERS, "cannot parse action");
+        if (_requestType == RequestType.DRAW_NUMBERS){
+            (uint8 _nbNumbers, uint _minNumber, uint _maxNumber) = abi.decode(_request, (uint8, uint , uint));
+            (uint[] memory _numbers) = abi.decode(_response, (uint[]));
+            _innerSetResults(_raffleId, _nbNumbers, _minNumber, _maxNumber, _numbers);
+        } else if (_requestType == RequestType.CHECK_WINNERS){
+            (uint[] memory _numbers) = abi.decode(_request, (uint[]));
+            (address[] memory _winners) = abi.decode(_response, (address[]));
+            _innerSetWinners(_raffleId, _numbers, _winners);
+        }
+         */
+
+        // Decode the queue data by ethabi (uint, uint8, bytes)
+        let Ok(decoded) = ethabi::decode(&[ParamType::Uint(32), ParamType::Uint(32)], &raw_data[0..64]) else {
+            return Err(ContractError::FailedToDecode);
+        };
+
+        let [Token::Uint(raffle_id), Token::Uint(request_type)] = decoded.as_slice() else {
+            return Err(ContractError::FailedToDecode);
+        };
+
+        ink::env::debug_println!("Received request with raffle_id {raffle_id} and request_type {request_type}");
+        let raffle_id = raffle_id.as_u128();
+        let request_type = request_type.as_u32();
+
+        if request_type == 0 { // DRAW_NUMBERS
+            ink::env::debug_println!("Draw numbers ...");
+            // Decode by ethabi (uint8, uint , uint)
+            let Ok(request_decoded) = ethabi::decode(&[ParamType::Uint(32), ParamType::Uint(32), ParamType::Uint(32), ParamType::Uint(32), ParamType::Uint(32)], &raw_data) else {
+                return Err(ContractError::FailedToDecode);
+            };
+            let [Token::Uint(_), Token::Uint(_), Token::Uint(nb_numbers), Token::Uint(min_number), Token::Uint(max_number)] = request_decoded.as_slice() else {
+                return Err(ContractError::FailedToDecode);
+            };
+            ink::env::debug_println!("Received request to draw {nb_numbers} numbers between {min_number} and {max_number}");
+
+            let nb_numbers = nb_numbers.as_u32();
+            let min_number = min_number.as_u128();
+            let max_number = max_number.as_u128();
+
+            return Ok(LottoRequestMessage {
+                raffle_id,
+                request: Request::DrawNumbers(nb_numbers, min_number, max_number),
+            });
+        }
+        if request_type == 1 { // CHECK_WINNERS
+            ink::env::debug_println!("Check winners ...");
+            // Decode by ethabi (uint[])
+            let Ok(request_decoded) = ethabi::decode(&[ParamType::Uint(32), ParamType::Uint(32), ParamType::Array(Box::new(ParamType::Uint(32)))], &raw_data) else {
+                return Err(ContractError::FailedToDecode);
+            };
+            let [Token::Uint(_), Token::Uint(_), Token::Array(ref numbers)] = request_decoded.as_slice() else {
+                return Err(ContractError::FailedToDecode);
+            };
+            let numbers : Vec<Number> = numbers.into_iter().map(|n: &ethabi::Token| {if let ethabi::Token::Uint(v) = n { v.as_u128() } else { 0 } }).collect();
+
+            ink::env::debug_println!("Received request to check winners for numbers {numbers:?}");
+
+            return Ok(LottoRequestMessage {
+                raffle_id,
+                request: Request::CheckWinners(numbers),
+            });
+        }
+
+        Err(ContractError::FailedToDecode)
     }
 
     fn maybe_submit_tx(
@@ -659,6 +667,7 @@ mod lotto_draw {
 
     #[cfg(test)]
     mod tests {
+        use crate::lotto_draw::Request::{CheckWinners, DrawNumbers};
         use super::*;
 
         struct EnvVars {
@@ -932,7 +941,10 @@ mod lotto_draw {
             let _ = env_logger::try_init();
             pink_extension_runtime::mock_ext::mock_all_ext();
 
+            ink::env::debug_println!("init contract before");
             let lotto = init_contract();
+
+            ink::env::debug_println!("init contract after");
 
             let r = lotto.answer_request().expect("failed to answer request");
             ink::env::debug_println!("answer request: {r:?}");
@@ -969,15 +981,51 @@ mod lotto_draw {
         }
 
         #[ink::test]
-        fn decode_message() {
-            let encoded_message : Vec<u8> = hex::decode("0600000001100400310029001000").expect("hex decode failed");
-            let message = LottoRequestMessage::decode(&mut encoded_message.as_slice());
+        fn decode_message_draw_numbers() {
+            let encoded_message : Vec<u8> = hex::decode("00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000032").expect("hex decode failed");
+            let message = super::decode_message(encoded_message.as_slice()).expect("Error to decode message");
             ink::env::debug_println!("message: {message:?}");
+            assert_eq!(2, message.raffle_id);
+            assert_eq!(DrawNumbers(4, 1, 50), message.request);
+        }
 
-            let encoded_message : Vec<u8> = hex::decode("07000000000401003200").expect("hex decode failed");
-            let message = LottoRequestMessage::decode(&mut encoded_message.as_slice());
+        #[ink::test]
+        fn decode_message_check_winners() {
+            let encoded_message : Vec<u8> = hex::decode("00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000021000000000000000000000000000000000000000000000000000000000000002f00000000000000000000000000000000000000000000000000000000000000050000000000000000000000000000000000000000000000000000000000000006").expect("hex decode failed");
+            let message = super::decode_message(encoded_message.as_slice()).expect("Error to decode message");
             ink::env::debug_println!("message: {message:?}");
+            assert_eq!(1, message.raffle_id);
+            assert_eq!(CheckWinners(vec![33, 47, 5, 6]), message.request);
+        }
 
+        #[ink::test]
+        fn decode_array() {
+            let raw : Vec<u8> = hex::decode("000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000021000000000000000000000000000000000000000000000000000000000000002f00000000000000000000000000000000000000000000000000000000000000050000000000000000000000000000000000000000000000000000000000000006").expect("hex decode failed");
+            let request_decoded = ethabi::decode(&[ParamType::Array(Box::new(ParamType::Uint(32)))], &raw).expect("Error 1 to decode message");
+
+            let [Token::Array(ref numbers)] = request_decoded.as_slice() else {
+                assert!(false, "Error 2 to decode message");
+                return Ok(());
+            };
+            let numbers : Vec<u32> = numbers.into_iter().map(|n: &ethabi::Token| {if let ethabi::Token::Uint(v) = n { v.as_u32() } else { 0 } }).collect();
+
+            assert_eq!(vec![33u32, 47, 5, 6], numbers);
+
+        }
+
+        #[ink::test]
+        fn encode_array() {
+
+            let mut numbers = Vec::new();
+            numbers.push(Token::Uint(33u32.into()));
+            numbers.push(Token::Uint(47u32.into()));
+            numbers.push(Token::Uint(5u32.into()));
+            numbers.push(Token::Uint(6u32.into()));
+
+            let array_encoded = ethabi::encode(&[Token::Array(numbers)]);
+
+            let expected : Vec<u8> = hex::decode("000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000021000000000000000000000000000000000000000000000000000000000000002f00000000000000000000000000000000000000000000000000000000000000050000000000000000000000000000000000000000000000000000000000000006").expect("hex decode failed");
+            assert_eq!(expected, array_encoded);
         }
 
 
