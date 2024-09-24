@@ -39,14 +39,14 @@ describe('Test raffle life cycle', () => {
 
     // check the status and the raffle id
     expect (await lottoInstance.status()).to.equal(STATUS_NOT_STARTED);
-    expect (await lottoInstance.currentRaffleId()).to.equal(0);
+    expect (await lottoInstance.raffleId()).to.equal(0);
 
     // start the raffle
     await expect(lottoInstance.startRaffle()).not.to.be.reverted;
 
     // check the status and the raffle id
     expect (await lottoInstance.status()).to.equal(STATUS_ONGOING);
-    expect (await lottoInstance.currentRaffleId()).to.equal(1);
+    expect (await lottoInstance.raffleId()).to.equal(1);
 
   });
 
@@ -88,7 +88,7 @@ describe('Test raffle life cycle', () => {
 
     // check after
     expect(await lottoInstance.status()).to.equal(STATUS_WAITING_RESULTS);
-    expect(await lottoInstance.currentRaffleId()).to.equal(1);
+    expect(await lottoInstance.raffleId()).to.equal(1);
 
     // send the results
     const raffleId = 1;
@@ -100,7 +100,7 @@ describe('Test raffle life cycle', () => {
 
     // checks
     expect(await lottoInstance.status()).to.equal(STATUS_WAITING_WINNERS);
-    expect(await lottoInstance.currentRaffleId()).to.equal(1);
+    expect(await lottoInstance.raffleId()).to.equal(1);
 
   });
 
@@ -125,7 +125,7 @@ describe('Test raffle life cycle', () => {
 
     // checks before
     expect(await lottoInstance.status()).to.equal(STATUS_WAITING_WINNERS);
-    expect(await lottoInstance.currentRaffleId()).to.equal(1);
+    expect(await lottoInstance.raffleId()).to.equal(1);
 
     const raffleId = 1;
     const request = abiCoder.encode(['uint[]'], [[33, 47, 5, 6]]);
@@ -136,7 +136,7 @@ describe('Test raffle life cycle', () => {
 
     // checks
     expect(await lottoInstance.status()).to.equal(STATUS_ONGOING);
-    expect(await lottoInstance.currentRaffleId()).to.equal(2);
+    expect(await lottoInstance.raffleId()).to.equal(2);
   });
 
   it('Attestor submits 1 winner', async () => {
@@ -144,7 +144,7 @@ describe('Test raffle life cycle', () => {
 
     // checks before
     expect(await lottoInstance.status()).to.equal(STATUS_WAITING_WINNERS);
-    expect(await lottoInstance.currentRaffleId()).to.equal(1);
+    expect(await lottoInstance.raffleId()).to.equal(1);
 
     const raffleId = 1;
     const request = abiCoder.encode(['uint[]'], [[33, 47, 5, 6]]);
@@ -155,7 +155,7 @@ describe('Test raffle life cycle', () => {
 
     // checks
     expect(await lottoInstance.status()).to.equal(STATUS_CLOSED);
-    expect(await lottoInstance.currentRaffleId()).to.equal(1);
+    expect(await lottoInstance.raffleId()).to.equal(1);
   });
 
 

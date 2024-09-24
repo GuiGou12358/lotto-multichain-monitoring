@@ -5,7 +5,7 @@ contract Raffle {
 
     enum Status { NotStarted, Ongoing, WaitingResults, WaitingWinners, Closed }
 
-    uint public currentRaffleId;
+    uint public raffleId;
     Status public status;
     mapping (uint => uint[]) public results;
     mapping (uint => address[]) public winners;
@@ -15,17 +15,24 @@ contract Raffle {
     event ResultReceived(uint indexed _raffleId, uint[] _numbers);
     event WinnersRevealed(uint indexed _raffleId, address[] _winners);
 
+    function _setRaffleId(uint _raffleId) internal {
+        // check the status
+        require(status == Status.NotStarted, "Incorrect Status");
+        // update the storage
+        raffleId = _raffleId;
+    }
+
     function _startNewRaffle() internal returns (uint){
 
         // check the status
         require(status == Status.NotStarted || status == Status.Closed, "Incorrect Status");
         // update the storage
-        currentRaffleId += 1;
+        raffleId += 1;
         status = Status.Ongoing;
         // emit the event
-        emit RaffleStarted(currentRaffleId);
+        emit RaffleStarted(raffleId);
 
-        return currentRaffleId;
+        return raffleId;
 
     }
 
@@ -36,13 +43,13 @@ contract Raffle {
         // update the storage
         status = Status.WaitingResults;
         // emit the event
-        emit RaffleEnded(currentRaffleId);
+        emit RaffleEnded(raffleId);
     }
 
     function _setResults(uint _raffleId, uint[] memory _results) internal {
 
         // check the raffle number
-        require(currentRaffleId == _raffleId, "Incorrect Raffle Id");
+        require(raffleId == _raffleId, "Incorrect Raffle Id");
         // check the status
         require(status == Status.WaitingResults, "Incorrect Status");
         // save the results
@@ -56,7 +63,7 @@ contract Raffle {
     function _setWinners(uint _raffleId, address[] memory _winners) internal {
 
         // check the raffle number
-        require(currentRaffleId == _raffleId, "Incorrect Raffle Id");
+        require(raffleId == _raffleId, "Incorrect Raffle Id");
         // check the status
         require(status == Status.WaitingWinners, "Incorrect Status");
         // save the results

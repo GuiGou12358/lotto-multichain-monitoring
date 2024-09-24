@@ -7,7 +7,7 @@ async function main() {
 
   const lottoInstance = await ethers.getContractAt("LottoClient", contractAddress);
 
-  const raffleId = await lottoInstance.currentRaffleId() ;
+  const raffleId = await lottoInstance.raffleId() ;
   const previousRaffle = raffleId - BigInt(1);
   console.log("previousRaffle: %", previousRaffle);
   console.log("Result: %s, %s, %s, %s",

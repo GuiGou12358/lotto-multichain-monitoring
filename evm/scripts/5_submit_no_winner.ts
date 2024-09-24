@@ -11,7 +11,7 @@ async function main() {
   const lottoInstance = await ethers.getContractAt("LottoClient", contractAddress);
 
   // reply
-  const raffleId = await lottoInstance.currentRaffleId();
+  const raffleId = await lottoInstance.raffleId();
   const request = abiCoder.encode(['uint[]'], [[43, 50, 2, 15]]);
   const response = abiCoder.encode(['address[]'], [[]]);
   const action1 = abiCoder.encode(['uint', 'uint8', 'bytes', 'bytes'], [raffleId, CHECK_WINNERS, request, response]);

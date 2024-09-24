@@ -31,7 +31,7 @@ contract LottoClient is Config, Raffle, Ownable, AccessControl, PhatRollupAnchor
 
 		// save the participation
 		address _participant = msg.sender;
-		emit ParticipantRegistered(currentRaffleId, _participant, _numbers);
+		emit ParticipantRegistered(raffleId, _participant, _numbers);
 
 	}
 
@@ -54,7 +54,7 @@ contract LottoClient is Config, Raffle, Ownable, AccessControl, PhatRollupAnchor
 		// stop the raffle
 		_stopCurrentRaffle();
 		// request the draw numbers
-		_pushMessage(abi.encode(currentRaffleId, RequestType.DRAW_NUMBERS, nbNumbers, minNumber, maxNumber));
+		_pushMessage(abi.encode(raffleId, RequestType.DRAW_NUMBERS, nbNumbers, minNumber, maxNumber));
 	}
 
 	bytes public constant LAST_RAFFLE_DONE = "_lastRaffleDone";

@@ -10,7 +10,7 @@ async function main() {
   const lottoInstance = await ethers.getContractAt("LottoClient", contractAddress);
 
   console.log("current status: %s", await lottoInstance.status());
-  console.log("current raffle id: %s", await lottoInstance.currentRaffleId());
+  console.log("current raffle id: %s", await lottoInstance.raffleId());
 
   const head = await lottoInstance.queueGetUint(hex("_head"));
   const tail = await lottoInstance.queueGetUint(hex("_tail"));
