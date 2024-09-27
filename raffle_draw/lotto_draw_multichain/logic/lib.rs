@@ -2,3 +2,6 @@
 pub mod error;
 pub mod indexer;
 pub mod types;
+pub mod raffle;
+mod evm_coder;
+mod wasm_coder;

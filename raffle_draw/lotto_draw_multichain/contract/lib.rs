@@ -10,62 +10,11 @@ mod lotto_draw_multichain {
     use ink::storage::Mapping;
     use phat_offchain_rollup::clients::ink::{Action, InkRollupClient};
     use pink_extension::chain_extension::signing;
-    use pink_extension::{ error, info, vrf, ResultExt};
+    use pink_extension::{error, info, vrf, ResultExt};
     use scale::{Decode, Encode};
     use lotto_draw_logic::indexer::Indexer;
     use lotto_draw_logic::error::RaffleDrawError;
     use lotto_draw_logic::types::*;
-
-    /// Message to request the lotto lotto_draw or the list of winners
-    /// message pushed in the queue by the Ink! smart contract and read by the offchain rollup
-    #[derive(Eq, PartialEq, Clone, Debug, scale::Encode, scale::Decode)]
-    #[cfg_attr(
-        feature = "std",
-        derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
-    )]
-    pub struct LottoRequestMessage {
-        /// lotto_draw number
-        raffle_id: RaffleId,
-        /// request
-        request: Request,
-    }
-
-    #[derive(Eq, PartialEq, Clone, Debug, scale::Encode, scale::Decode)]
-    #[cfg_attr(
-        feature = "std",
-        derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
-    )]
-    pub enum Request {
-        /// request to lotto_draw the n number between min and max values
-        /// arg1: number of numbers for the lotto_draw
-        /// arg2:  smallest number for the lotto_draw
-        /// arg2:  biggest number for the lotto_draw
-        DrawNumbers(u8, Number, Number),
-        /// request to check if there is a winner for the given numbers
-        CheckWinners(Vec<Number>),
-    }
-
-    /// Message sent to provide the lotto lotto_draw or the list of winners
-    /// response pushed in the queue by the offchain rollup and read by the Ink! smart contract
-    #[derive(Encode, Decode, Debug)]
-    struct LottoResponseMessage {
-        /// initial request
-        request: LottoRequestMessage,
-        /// response
-        response: Response,
-    }
-
-    #[derive(Eq, PartialEq, Clone, scale::Encode, scale::Decode, Debug)]
-    #[cfg_attr(
-        feature = "std",
-        derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
-    )]
-    pub enum Response {
-        /// list of numbers
-        Numbers(Vec<Number>),
-        /// list of winners
-        Winners(Vec<AccountId32>), // TODO manage AccountId20
-    }
 
     #[ink(storage)]
     pub struct Lotto {
@@ -80,40 +29,11 @@ mod lotto_draw_multichain {
         attest_key: [u8; 32],
     }
 
-    #[derive(Encode, Decode, Debug)]
-    #[cfg_attr(
-        feature = "std",
-        derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
-    )]
-    pub struct WasmContractConfig {
-        /// The RPC endpoint of the target blockchain
-        rpc: String,
-        pallet_id: u8,
-        call_id: u8,
-        /// The rollup anchor address on the target blockchain
-        contract_id: WasmContractId,
-        /// Key for sending out the rollup meta-tx. None to fallback to the wallet based auth.
-        sender_key: Option<[u8; 32]>,
-    }
-
-    #[derive(Encode, Decode, Debug)]
-    #[cfg_attr(
-        feature = "std",
-        derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
-    )]
-    pub struct EvmContractConfig {
-        /// The RPC endpoint of the target blockchain
-        rpc: String,
-        /// The rollup anchor address on the target blockchain
-        contract_id: EvmContractId,
-        /// Key for sending out the rollup meta-tx. None to fallback to the wallet based auth.
-        sender_key: Option<[u8; 32]>,
-    }
-
     #[derive(Encode, Decode, Debug, PartialEq, Eq)]
     #[repr(u8)]
     #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
     pub enum ContractError {
+        RaffleDrawError(RaffleDrawError),
         BadOrigin,
         ClientNotConfigured,
         InvalidKeyLength,
@@ -122,12 +42,6 @@ mod lotto_draw_multichain {
         FailedToCreateClient,
         FailedToCommitTx,
         FailedToCallRollup,
-        // error when checking the winners
-        NoNumber,
-        IndexerNotConfigured,
-        HttpRequestFailed,
-        InvalidResponseBody,
-        InvalidSs58Address,
         // error when drawing the numbers
         MinGreaterThanMax,
         AddOverFlow,
@@ -137,7 +51,6 @@ mod lotto_draw_multichain {
         InvalidContractId,
         CurrentRaffleUnknown,
         UnauthorizedRaffle,
-        RaffleDrawError(RaffleDrawError),
     }
 
     #[derive(scale::Encode)]
@@ -314,7 +227,7 @@ mod lotto_draw_multichain {
         }
 
         /// Processes a request by a rollup transaction
-        //#[ink(message)]
+        #[ink(message)]
         pub fn answer_request(&self) -> Result<Option<Vec<u8>>> {
             let config = self.ensure_client_configured()?;
             let mut client = connect(config)?;
@@ -339,7 +252,6 @@ mod lotto_draw_multichain {
             let raffle_id = message.raffle_id;
 
             let indexer = Indexer::new(self.get_indexer_url())?;
-
             let hashes = indexer.query_hashes(raffle_id)?;
 
             let salt = SaltVrf {
@@ -525,12 +437,6 @@ mod lotto_draw_multichain {
                 .as_ref()
                 .ok_or(ContractError::ClientNotConfigured)
         }
-
-        fn ensure_indexer_configured(&self) -> Result<&String> {
-            self.indexer_url
-                .as_ref()
-                .ok_or(ContractError::IndexerNotConfigured)
-        }
     }
 
     fn connect(config: &WasmContractConfig) -> Result<InkRollupClient> {
@@ -635,7 +541,7 @@ mod lotto_draw_multichain {
 
             let mut lotto = Lotto::default();
             lotto
-                .config_target_contract(rpc, pallet_id, call_id, contract_id.into(), sender_key)
+                .set_primary_consumer(rpc, pallet_id, call_id, contract_id.into(), sender_key)
                 .unwrap();
 
             lotto
@@ -658,8 +564,13 @@ mod lotto_draw_multichain {
             let smallest_number = 1;
             let biggest_number = 50;
 
+            let salt = SaltVrf {
+                raffle_id,
+                hashes: vec![]
+            };
+
             let result = lotto
-                .inner_get_numbers(raffle_id, nb_numbers, smallest_number, biggest_number)
+                .inner_get_numbers(&salt, nb_numbers, smallest_number, biggest_number)
                 .unwrap();
             assert_eq!(nb_numbers as usize, result.len());
             for &n in result.iter() {
@@ -682,8 +593,13 @@ mod lotto_draw_multichain {
             let smallest_number = 1;
             let biggest_number = 5;
 
+            let salt = SaltVrf {
+                raffle_id,
+                hashes: vec![]
+            };
+
             let result = lotto
-                .inner_get_numbers(raffle_id, nb_numbers, smallest_number, biggest_number)
+                .inner_get_numbers(&salt, nb_numbers, smallest_number, biggest_number)
                 .unwrap();
             assert_eq!(nb_numbers as usize, result.len());
             for &n in result.iter() {
@@ -708,15 +624,21 @@ mod lotto_draw_multichain {
             let mut results = Vec::new();
 
             for i in 0..100 {
+
+                let salt = SaltVrf {
+                    raffle_id: i,
+                    hashes: vec![]
+                };
+
                 let result = lotto
-                    .inner_get_numbers(i, nb_numbers, smallest_number, biggest_number)
+                    .inner_get_numbers(&salt, nb_numbers, smallest_number, biggest_number)
                     .unwrap();
                 // this result must be different from the previous ones
                 results.iter().for_each(|r| assert_ne!(result, *r));
 
                 // same request message means same result
                 let result_2 = lotto
-                    .inner_get_numbers(i, nb_numbers, smallest_number, biggest_number)
+                    .inner_get_numbers(&salt, nb_numbers, smallest_number, biggest_number)
                     .unwrap();
                 assert_eq!(result, result_2);
 
@@ -736,14 +658,19 @@ mod lotto_draw_multichain {
             let smallest_number = 1;
             let biggest_number = 50;
 
+            let salt = SaltVrf {
+                raffle_id,
+                hashes: vec![]
+            };
+
             let numbers = lotto
-                .inner_get_numbers(raffle_id, nb_numbers, smallest_number, biggest_number)
+                .inner_get_numbers(&salt, nb_numbers, smallest_number, biggest_number)
                 .unwrap();
 
             assert_eq!(
                 Ok(true),
                 lotto.inner_verify_numbers(
-                    raffle_id,
+                    &salt,
                     nb_numbers,
                     smallest_number,
                     biggest_number,
@@ -751,10 +678,15 @@ mod lotto_draw_multichain {
                 )
             );
 
+            let other_salt = SaltVrf {
+                raffle_id : raffle_id + 1,
+                hashes: vec![]
+            };
+
             assert_eq!(
                 Ok(false),
                 lotto.inner_verify_numbers(
-                    raffle_id + 1,
+                    &other_salt,
                     nb_numbers,
                     smallest_number,
                     biggest_number,
@@ -775,14 +707,19 @@ mod lotto_draw_multichain {
             let smallest_number = 1;
             let biggest_number = 50;
 
+            let salt = SaltVrf {
+                raffle_id,
+                hashes: vec![]
+            };
+
             let numbers = lotto
-                .inner_get_numbers(raffle_id, nb_numbers, smallest_number, biggest_number)
+                .inner_get_numbers(&salt, nb_numbers, smallest_number, biggest_number)
                 .unwrap();
 
             assert_eq!(
                 Ok(true),
                 lotto.inner_verify_numbers(
-                    raffle_id,
+                    &salt,
                     nb_numbers,
                     smallest_number,
                     biggest_number,
@@ -790,11 +727,11 @@ mod lotto_draw_multichain {
                 )
             );
 
-            let target_contract = lotto.get_target_contract().unwrap();
+            let target_contract = lotto.get_primary_consumer().unwrap();
 
             let bad_contract_id: WasmContractId = [0; 32];
             lotto
-                .config_target_contract(
+                .set_primary_consumer(
                     target_contract.0,
                     target_contract.1,
                     target_contract.2,
@@ -806,55 +743,13 @@ mod lotto_draw_multichain {
             assert_eq!(
                 Ok(false),
                 lotto.inner_verify_numbers(
-                    raffle_id,
+                    &salt,
                     nb_numbers,
                     smallest_number,
                     biggest_number,
                     numbers.clone()
                 )
             );
-        }
-
-        #[ink::test]
-        fn test_get_winners() {
-            let _ = env_logger::try_init();
-            pink_extension_runtime::mock_ext::mock_all_ext();
-
-            let lotto = init_contract();
-
-            let draw_num = 2;
-            let numbers = vec![15, 1, 44, 28];
-
-            let winners = lotto.inner_get_winners(draw_num, &numbers).unwrap();
-            ink::env::debug_println!("winners: {winners:?}");
-        }
-
-        #[ink::test]
-        fn test_no_winner() {
-            let _ = env_logger::try_init();
-            pink_extension_runtime::mock_ext::mock_all_ext();
-
-            let lotto = init_contract();
-
-            let draw_num = 0;
-            let numbers = vec![150, 1, 44, 2800];
-
-            let winners = lotto.inner_get_winners(draw_num, &numbers).unwrap();
-            assert_eq!(0, winners.len());
-        }
-
-        #[ink::test]
-        fn test_no_number() {
-            let _ = env_logger::try_init();
-            pink_extension_runtime::mock_ext::mock_all_ext();
-
-            let lotto = init_contract();
-
-            let draw_num = 0;
-            let numbers = vec![];
-
-            let result = lotto.inner_get_winners(draw_num, &numbers);
-            assert_eq!(Err(ContractError::NoNumber), result);
         }
 
         #[ink::test]
