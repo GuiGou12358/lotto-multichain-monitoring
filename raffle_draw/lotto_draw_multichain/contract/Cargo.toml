@@ -24,6 +24,8 @@ phat_offchain_rollup = { git = "https://github.com/GuiGou12358/phat-offchain-rol
 subrpc = { package = "pink-subrpc", git = "https://github.com/GuiGou12358/phala-blockchain", branch = "test-logging", default-features = false, optional = true }
 hex = { version = "0.4", default-features = false }
 
+lotto_draw_logic = { path = "../logic", default-features = false }
+
 [dev-dependencies]
 dotenvy = "0.15"
 env_logger = "0.10.0"
@@ -46,6 +48,7 @@ std = [
     "pink-extension/std",
     "serde-json-core/std",
     "sp-core/std",
+    "lotto_draw_logic/std",
 ]
 ink-as-dependency = []
 logging = ["phat_offchain_rollup/logging"]

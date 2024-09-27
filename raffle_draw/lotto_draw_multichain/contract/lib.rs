@@ -6,22 +6,15 @@ extern crate core;
 #[ink::contract(env = pink_extension::PinkEnvironment)]
 mod lotto_draw_multichain {
     use alloc::vec::Vec;
-    use ink::prelude::{format, string::String};
+    use ink::prelude::string::String;
     use ink::storage::Mapping;
     use phat_offchain_rollup::clients::ink::{Action, InkRollupClient};
     use pink_extension::chain_extension::signing;
-    use pink_extension::{debug, error, http_post, info, vrf, ResultExt};
+    use pink_extension::{ error, info, vrf, ResultExt};
     use scale::{Decode, Encode};
-    use serde::Deserialize;
-    use serde_json_core;
-    use sp_core::crypto::{AccountId32, Ss58Codec};
-
-    pub type RaffleId = u32;
-    pub type Number = u16;
-    pub type WasmContractId = phat_offchain_rollup::clients::ink::ContractId;
-    pub type EvmContractId = [u8; 20];
-    pub type AccountId20 = [u8; 20];
-    //pub type Hash = [u8; 32];
+    use lotto_draw_logic::indexer::Indexer;
+    use lotto_draw_logic::error::RaffleDrawError;
+    use lotto_draw_logic::types::*;
 
     /// Message to request the lotto lotto_draw or the list of winners
     /// message pushed in the queue by the Ink! smart contract and read by the offchain rollup
@@ -71,61 +64,7 @@ mod lotto_draw_multichain {
         /// list of numbers
         Numbers(Vec<Number>),
         /// list of winners
-        Winners(Vec<AccountId>),
-    }
-
-    /// DTO use for serializing and deserializing the json when querying the winners
-    #[derive(Deserialize, Encode, Clone, Debug, PartialEq)]
-    pub struct IndexerParticipationsResponse<'a> {
-        #[serde(borrow)]
-        data: IndexerParticipationsResponseData<'a>,
-    }
-
-    #[derive(Deserialize, Encode, Clone, Debug, PartialEq)]
-    #[allow(non_snake_case)]
-    struct IndexerParticipationsResponseData<'a> {
-        #[serde(borrow)]
-        participations: Participations<'a>,
-    }
-
-    #[derive(Deserialize, Encode, Clone, Debug, PartialEq)]
-    struct Participations<'a> {
-        #[serde(borrow)]
-        nodes: Vec<ParticipationNode<'a>>,
-    }
-
-    #[derive(Deserialize, Encode, Clone, Debug, PartialEq)]
-    #[allow(non_snake_case)]
-    struct ParticipationNode<'a> {
-        accountId: &'a str,
-    }
-
-
-    /// DTO use for serializing and deserializing the json when querying the hashes
-    #[derive(Deserialize, Encode, Clone, Debug, PartialEq)]
-    pub struct IndexerHashesResponse<'a> {
-        #[serde(borrow)]
-        data: IndexerHashesResponseData<'a>,
-    }
-
-    #[derive(Deserialize, Encode, Clone, Debug, PartialEq)]
-    #[allow(non_snake_case)]
-    struct IndexerHashesResponseData<'a> {
-        #[serde(borrow)]
-        endRaffles: EndRaffle<'a>,
-    }
-
-    #[derive(Deserialize, Encode, Clone, Debug, PartialEq)]
-    struct EndRaffle<'a> {
-        #[serde(borrow)]
-        nodes: Vec<EndRaffleNode<'a>>,
-    }
-
-    #[derive(Deserialize, Encode, Clone, Debug, PartialEq)]
-    #[allow(non_snake_case)]
-    struct EndRaffleNode<'a> {
-        lottoId: &'a str,
-        hash: &'a str,
+        Winners(Vec<AccountId32>), // TODO manage AccountId20
     }
 
     #[ink(storage)]
@@ -198,13 +137,14 @@ mod lotto_draw_multichain {
         InvalidContractId,
         CurrentRaffleUnknown,
         UnauthorizedRaffle,
+        RaffleDrawError(RaffleDrawError),
     }
 
     #[derive(scale::Encode)]
     struct SaltVrf {
         //primary_consumer: ContractId,
         raffle_id: RaffleId,
-        hashes: Vec<Hash>,
+        hashes: Vec<lotto_draw_logic::types::Hash>,
     }
 
     type Result<T> = core::result::Result<T, ContractError>;
@@ -213,6 +153,12 @@ mod lotto_draw_multichain {
         fn from(error: phat_offchain_rollup::Error) -> Self {
             error!("error in the rollup: {:?}", error);
             ContractError::FailedToCallRollup
+        }
+    }
+
+    impl From<RaffleDrawError> for ContractError {
+        fn from(error: RaffleDrawError) -> Self {
+            ContractError::RaffleDrawError(error)
         }
     }
 
@@ -392,7 +338,9 @@ mod lotto_draw_multichain {
 
             let raffle_id = message.raffle_id;
 
-            let hashes = self.inner_get_hashes(raffle_id)?;
+            let indexer = Indexer::new(self.get_indexer_url())?;
+
+            let hashes = indexer.query_hashes(raffle_id)?;
 
             let salt = SaltVrf {
                 raffle_id,
@@ -408,9 +356,11 @@ mod lotto_draw_multichain {
                         biggest_number,
                     )
                     .map(Response::Numbers)?,
-                Request::CheckWinners(ref numbers) => self
-                    .inner_get_winners(message.raffle_id, numbers)
-                    .map(Response::Winners)?,
+                Request::CheckWinners(ref numbers) => {
+                    let indexer = Indexer::new(self.get_indexer_url())?;
+                    indexer.query_winners(message.raffle_id, numbers)
+                        .map(Response::Winners)?
+                }
             };
 
             Ok(LottoResponseMessage {
@@ -426,7 +376,7 @@ mod lotto_draw_multichain {
             &self,
             contract_id: WasmContractId,
             raffle_id: RaffleId,
-            hashes: Vec<Hash>,
+            hashes: Vec<lotto_draw_logic::types::Hash>,
             nb_numbers: u8,
             smallest_number: Number,
             biggest_number: Number,
@@ -558,143 +508,6 @@ mod lotto_draw_multichain {
 
             Ok(r as Number)
         }
-
-        fn inner_get_winners(
-            &self,
-            raffle_id: RaffleId,
-            numbers: &Vec<Number>,
-        ) -> Result<Vec<AccountId>> {
-            info!(
-                "Request received to get the winners for raffle id {raffle_id} and numbers {numbers:?} "
-            );
-
-            if numbers.is_empty() {
-                return Err(ContractError::NoNumber);
-            }
-
-            // check if the endpoint is configured
-            let indexer_endpoint = self.ensure_indexer_configured()?;
-
-            // build the headers
-            let headers = alloc::vec![
-                ("Content-Type".into(), "application/json".into()),
-                ("Accept".into(), "application/json".into())
-            ];
-            // build the filter
-            let mut filter = format!(
-                r#"filter:{{and:[{{numRaffle:{{equalTo:\"{}\"}}}}"#,
-                raffle_id
-            );
-            for n in numbers {
-                let f = format!(r#",{{numbers:{{contains:\"{}\"}}}}"#, n);
-                filter.push_str(&f);
-            }
-            filter.push_str("]}");
-
-            // build the body
-            let body = format!(
-                r#"{{"query" : "{{participations({}){{ nodes {{ accountId }} }} }}"}}"#,
-                filter
-            );
-
-            debug!("body: {body}");
-
-            // query the indexer
-            let resp = http_post!(indexer_endpoint, body, headers);
-
-            // check the result
-            if resp.status_code != 200 {
-                ink::env::debug_println!("status code {}", resp.status_code);
-                return Err(ContractError::HttpRequestFailed);
-            }
-
-            // parse the result
-            let result: IndexerParticipationsResponse = serde_json_core::from_slice(resp.body.as_slice())
-                .or(Err(ContractError::InvalidResponseBody))?
-                .0;
-
-            // add the winners
-            let mut winners = Vec::new();
-            for w in result.data.participations.nodes.iter() {
-                // build the accountId from the string address
-                let account_id = AccountId32::from_ss58check(w.accountId)
-                    .or(Err(ContractError::InvalidSs58Address))?;
-                let address_hex: [u8; 32] = scale::Encode::encode(&account_id)
-                    .try_into()
-                    .or(Err(ContractError::InvalidKeyLength))?;
-                winners.push(AccountId::from(address_hex));
-            }
-
-            info!("Winners: {winners:02x?}");
-
-            Ok(winners)
-        }
-
-
-        fn inner_get_hashes(
-            &self,
-            raffle_id: RaffleId,
-        ) -> Result<Vec<Hash>> {
-            info!(
-                "Query hashes for raffle id {raffle_id}"
-            );
-
-            // check if the endpoint is configured
-            let indexer_endpoint = self.ensure_indexer_configured()?;
-
-            // build the headers
-            let headers = alloc::vec![
-                ("Content-Type".into(), "application/json".into()),
-                ("Accept".into(), "application/json".into())
-            ];
-            // build the filter
-            let filter = format!(
-                r#"filter:{{numRaffle:{{equalTo:\"{}\"}}}}"#,
-                raffle_id
-            );
-
-            // build the body
-            let body = format!(
-                r#"{{"query" : "{{endRaffle({}){{ nodes {{ lottoId, hash }} }} }}"}}"#,
-                filter
-            );
-
-            debug!("body: {body}");
-
-            // query the indexer
-            let resp = http_post!(indexer_endpoint, body, headers);
-
-            // check the result
-            if resp.status_code != 200 {
-                ink::env::debug_println!("status code {}", resp.status_code);
-                return Err(ContractError::HttpRequestFailed);
-            }
-
-            // parse the result
-            let result: IndexerHashesResponse = serde_json_core::from_slice(resp.body.as_slice())
-                .or(Err(ContractError::InvalidResponseBody))?
-                .0;
-
-            // add the hashes
-            let mut hashes = Vec::new();
-            for node in result.data.endRaffles.nodes.iter() {
-                // build the accountId from the string address
-                let hash_raw: [u8; 32] = hex::decode(node.hash)
-                    .expect("hex decode failed")
-                    .try_into()
-                    .expect("incorrect length");
-                hashes.push(
-                    hash_raw.
-                    try_into()
-                    .expect("incorrect length")
-                );
-            }
-
-            info!("Hashes: {hashes:02x?}");
-
-            Ok(hashes)
-        }
-
 
 
         /// Returns BadOrigin error if the caller is not the owner
