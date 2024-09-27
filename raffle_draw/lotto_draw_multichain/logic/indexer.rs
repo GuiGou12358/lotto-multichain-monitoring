@@ -3,13 +3,13 @@ extern crate core;
 
 use crate::error::RaffleDrawError::{self, *};
 use crate::types::*;
+use alloc::vec::Vec;
+use ink::prelude::{format, string::String};
 use pink_extension::{debug, http_post, info};
 use scale::{Decode, Encode};
 use serde::Deserialize;
 use serde_json_core;
 use sp_core::crypto::Ss58Codec;
-use ink::prelude::{format, string::String};
-use alloc::vec::Vec;
 
 /// DTO use for serializing and deserializing the json when querying the winners
 #[derive(Deserialize, Encode, Clone, Debug, PartialEq)]
@@ -68,8 +68,7 @@ pub struct Indexer {
     endpoint: String,
 }
 
-impl Indexer{
-
+impl Indexer {
     pub fn new(url: Option<String>) -> Result<Self, RaffleDrawError> {
         let endpoint = url.ok_or(IndexerNotConfigured)?;
         Ok(Self { endpoint })
@@ -131,8 +130,8 @@ impl Indexer{
         let mut winners = Vec::new();
         for w in result.data.participations.nodes.iter() {
             // build the accountId from the string address
-            let account_id =
-                sp_core::crypto::AccountId32::from_ss58check(w.accountId).or(Err(InvalidSs58Address))?;
+            let account_id = sp_core::crypto::AccountId32::from_ss58check(w.accountId)
+                .or(Err(InvalidSs58Address))?;
             let address_hex: [u8; 32] = scale::Encode::encode(&account_id)
                 .try_into()
                 .or(Err(InvalidKeyLength))?;
@@ -144,10 +143,7 @@ impl Indexer{
         Ok(winners)
     }
 
-    pub fn query_hashes(
-        self,
-        raffle_id: RaffleId
-    ) -> Result<Vec<Hash>, RaffleDrawError> {
+    pub fn query_hashes(self, raffle_id: RaffleId) -> Result<Vec<Hash>, RaffleDrawError> {
         info!("Query hashes for raffle id {raffle_id}");
 
         // build the headers
@@ -194,5 +190,53 @@ impl Indexer{
         info!("Hashes: {hashes:02x?}");
 
         Ok(hashes)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn new_indexer() -> Indexer {
+        Indexer {
+            endpoint: "https://query.substrate.fi/lotto-subquery-shibuya".to_string(),
+        }
+    }
+
+    // TODO ink::test or test
+    #[ink::test]
+    fn test_get_winners() {
+        pink_extension_runtime::mock_ext::mock_all_ext();
+
+        let draw_num = 2;
+        let numbers = vec![15, 1, 44, 28];
+
+        let indexer = new_indexer();
+        let winners = indexer.query_winners(draw_num, &numbers).unwrap();
+        ink::env::debug_println!("winners: {winners:?}");
+    }
+
+    #[ink::test]
+    fn test_no_winner() {
+        pink_extension_runtime::mock_ext::mock_all_ext();
+
+        let draw_num = 0;
+        let numbers = vec![150, 1, 44, 2800];
+
+        let indexer = new_indexer();
+        let winners = indexer.query_winners(draw_num, &numbers).unwrap();
+        assert_eq!(0, winners.len());
+    }
+
+    #[ink::test]
+    fn test_no_number() {
+        pink_extension_runtime::mock_ext::mock_all_ext();
+
+        let draw_num = 0;
+        let numbers = vec![];
+
+        let indexer = new_indexer();
+        let result = indexer.query_winners(draw_num, &numbers);
+        assert_eq!(Err(NoNumber), result);
     }
 }
