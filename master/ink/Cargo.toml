@@ -1,6 +1,0 @@
-[workspace]
-members = [
-    "logics",
-    "contracts/lotto",
-    "integration_tests",
-]
