@@ -8,7 +8,7 @@ mod lotto_draw_multichain {
     use alloc::vec::Vec;
     use ink::prelude::{format, string::String};
     use ink::storage::Mapping;
-    use phat_offchain_rollup::clients::ink::{Action, ContractId, InkRollupClient};
+    use phat_offchain_rollup::clients::ink::{Action, InkRollupClient};
     use pink_extension::chain_extension::signing;
     use pink_extension::{debug, error, http_post, info, vrf, ResultExt};
     use scale::{Decode, Encode};
@@ -21,6 +21,7 @@ mod lotto_draw_multichain {
     pub type WasmContractId = phat_offchain_rollup::clients::ink::ContractId;
     pub type EvmContractId = [u8; 20];
     pub type AccountId20 = [u8; 20];
+    //pub type Hash = [u8; 32];
 
     /// Message to request the lotto lotto_draw or the list of winners
     /// message pushed in the queue by the Ink! smart contract and read by the offchain rollup
@@ -73,16 +74,16 @@ mod lotto_draw_multichain {
         Winners(Vec<AccountId>),
     }
 
-    /// DTO use for serializing and deserializing the json
+    /// DTO use for serializing and deserializing the json when querying the winners
     #[derive(Deserialize, Encode, Clone, Debug, PartialEq)]
-    pub struct IndexerResponse<'a> {
+    pub struct IndexerParticipationsResponse<'a> {
         #[serde(borrow)]
-        data: IndexerResponseData<'a>,
+        data: IndexerParticipationsResponseData<'a>,
     }
 
     #[derive(Deserialize, Encode, Clone, Debug, PartialEq)]
     #[allow(non_snake_case)]
-    struct IndexerResponseData<'a> {
+    struct IndexerParticipationsResponseData<'a> {
         #[serde(borrow)]
         participations: Participations<'a>,
     }
@@ -97,6 +98,34 @@ mod lotto_draw_multichain {
     #[allow(non_snake_case)]
     struct ParticipationNode<'a> {
         accountId: &'a str,
+    }
+
+
+    /// DTO use for serializing and deserializing the json when querying the hashes
+    #[derive(Deserialize, Encode, Clone, Debug, PartialEq)]
+    pub struct IndexerHashesResponse<'a> {
+        #[serde(borrow)]
+        data: IndexerHashesResponseData<'a>,
+    }
+
+    #[derive(Deserialize, Encode, Clone, Debug, PartialEq)]
+    #[allow(non_snake_case)]
+    struct IndexerHashesResponseData<'a> {
+        #[serde(borrow)]
+        endRaffles: EndRaffle<'a>,
+    }
+
+    #[derive(Deserialize, Encode, Clone, Debug, PartialEq)]
+    struct EndRaffle<'a> {
+        #[serde(borrow)]
+        nodes: Vec<EndRaffleNode<'a>>,
+    }
+
+    #[derive(Deserialize, Encode, Clone, Debug, PartialEq)]
+    #[allow(non_snake_case)]
+    struct EndRaffleNode<'a> {
+        lottoId: &'a str,
+        hash: &'a str,
     }
 
     #[ink(storage)]
@@ -171,6 +200,13 @@ mod lotto_draw_multichain {
         UnauthorizedRaffle,
     }
 
+    #[derive(scale::Encode)]
+    struct SaltVrf {
+        //primary_consumer: ContractId,
+        raffle_id: RaffleId,
+        hashes: Vec<Hash>,
+    }
+
     type Result<T> = core::result::Result<T, ContractError>;
 
     impl From<phat_offchain_rollup::Error> for ContractError {
@@ -230,17 +266,37 @@ mod lotto_draw_multichain {
             }
         }
 
+        /// Gets the sender address used by this rollup (in case of meta-transaction)
+        #[ink(message)]
+        pub fn get_secondary_sender_address(&self, key: u8) -> Option<Vec<u8>> {
+            if let Some(Some(sender_key)) =
+                self.secondary_consumers.get(key).map(|c| c.sender_key)
+            {
+                let sender_key = signing::get_public_key(&sender_key, signing::SigType::Sr25519);
+                Some(sender_key)
+            } else {
+                None
+            }
+        }
+
         /// Gets the config of the target consumer contract
         #[ink(message)]
-        pub fn get_target_contract(&self) -> Option<(String, u8, u8, ContractId)> {
+        pub fn get_primary_consumer(&self) -> Option<(String, u8, u8, WasmContractId)> {
             self.primary_consumer
                 .as_ref()
                 .map(|c| (c.rpc.clone(), c.pallet_id, c.call_id, c.contract_id))
         }
 
+        /// Gets the config of the target consumer contract
+        #[ink(message)]
+        pub fn get_secondary_consumer(&self, key: u8) -> Option<(String, EvmContractId)> {
+            self.secondary_consumers.get(key)
+                .map(|c| (c.rpc.clone(), c.contract_id))
+        }
+
         /// Configures the target consumer contract (admin only)
         #[ink(message)]
-        pub fn config_target_contract(
+        pub fn set_primary_consumer(
             &mut self,
             rpc: String,
             pallet_id: u8,
@@ -333,10 +389,20 @@ mod lotto_draw_multichain {
         }
 
         fn handle_request(&self, message: LottoRequestMessage) -> Result<LottoResponseMessage> {
+
+            let raffle_id = message.raffle_id;
+
+            let hashes = self.inner_get_hashes(raffle_id)?;
+
+            let salt = SaltVrf {
+                raffle_id,
+                hashes,
+            };
+
             let response = match message.request {
                 Request::DrawNumbers(nb_numbers, smallest_number, biggest_number) => self
                     .inner_get_numbers(
-                        message.raffle_id,
+                        &salt,
                         nb_numbers,
                         smallest_number,
                         biggest_number,
@@ -360,6 +426,7 @@ mod lotto_draw_multichain {
             &self,
             contract_id: WasmContractId,
             raffle_id: RaffleId,
+            hashes: Vec<Hash>,
             nb_numbers: u8,
             smallest_number: Number,
             biggest_number: Number,
@@ -371,6 +438,11 @@ mod lotto_draw_multichain {
             if contract_id != config.contract_id {
                 return Err(ContractError::InvalidContractId);
             }
+
+            let salt = SaltVrf {
+                raffle_id,
+                hashes,
+            };
 
             let mut client = connect(config)?;
 
@@ -387,7 +459,7 @@ mod lotto_draw_multichain {
             }
 
             self.inner_verify_numbers(
-                raffle_id,
+                &salt,
                 nb_numbers,
                 smallest_number,
                 biggest_number,
@@ -397,14 +469,14 @@ mod lotto_draw_multichain {
 
         pub fn inner_verify_numbers(
             &self,
-            raffle_id: RaffleId,
+            salt: &SaltVrf,
             nb_numbers: u8,
             smallest_number: Number,
             biggest_number: Number,
             numbers: Vec<Number>,
         ) -> Result<bool> {
             let winning_numbers =
-                self.inner_get_numbers(raffle_id, nb_numbers, smallest_number, biggest_number)?;
+                self.inner_get_numbers(salt, nb_numbers, smallest_number, biggest_number)?;
             if winning_numbers.len() != numbers.len() {
                 return Ok(false);
             }
@@ -420,16 +492,15 @@ mod lotto_draw_multichain {
 
         fn inner_get_numbers(
             &self,
-            raffle_id: RaffleId,
+            salt: &SaltVrf,
             nb_numbers: u8,
             smallest_number: Number,
             biggest_number: Number,
         ) -> Result<Vec<Number>> {
+            let raffle_id = salt.raffle_id;
             info!(
                 "Request received for raffle {raffle_id} - draw {nb_numbers} numbers between {smallest_number} and {biggest_number}"
             );
-
-            let contract_id = self.ensure_client_configured()?.contract_id;
 
             if smallest_number > biggest_number {
                 return Err(ContractError::MinGreaterThanMax);
@@ -438,12 +509,16 @@ mod lotto_draw_multichain {
             let mut numbers = Vec::new();
             let mut i: u8 = 0;
 
+            use ink::env::hash;
+            let encoded_salt = Encode::encode(salt);
+            let mut salt_hash = <hash::Blake2x256 as hash::HashOutput>::Type::default();
+            ink::env::hash_bytes::<hash::Blake2x256>(&encoded_salt, &mut salt_hash);
+
             while numbers.len() < nb_numbers as usize {
                 // build a salt for this lotto_draw number
                 let mut salt: Vec<u8> = Vec::new();
                 salt.extend_from_slice(&i.to_be_bytes());
-                salt.extend_from_slice(&raffle_id.to_be_bytes());
-                salt.extend_from_slice(&contract_id);
+                salt.extend_from_slice(&salt_hash); // TODO maybe include i in hash salt
 
                 // lotto_draw the number
                 let number = self.inner_get_number(salt, smallest_number, biggest_number)?;
@@ -463,7 +538,7 @@ mod lotto_draw_multichain {
 
         fn inner_get_number(&self, salt: Vec<u8>, min: Number, max: Number) -> Result<Number> {
             let output = vrf(&salt);
-            // keep only 8 bytes to compute the random u64
+            // keep only 8 bytes to compute the random u6²
             let mut arr = [0x00; 8];
             arr.copy_from_slice(&output[0..8]);
             let rand_u64 = u64::from_le_bytes(arr);
@@ -534,7 +609,7 @@ mod lotto_draw_multichain {
             }
 
             // parse the result
-            let result: IndexerResponse = serde_json_core::from_slice(resp.body.as_slice())
+            let result: IndexerParticipationsResponse = serde_json_core::from_slice(resp.body.as_slice())
                 .or(Err(ContractError::InvalidResponseBody))?
                 .0;
 
@@ -554,6 +629,73 @@ mod lotto_draw_multichain {
 
             Ok(winners)
         }
+
+
+        fn inner_get_hashes(
+            &self,
+            raffle_id: RaffleId,
+        ) -> Result<Vec<Hash>> {
+            info!(
+                "Query hashes for raffle id {raffle_id}"
+            );
+
+            // check if the endpoint is configured
+            let indexer_endpoint = self.ensure_indexer_configured()?;
+
+            // build the headers
+            let headers = alloc::vec![
+                ("Content-Type".into(), "application/json".into()),
+                ("Accept".into(), "application/json".into())
+            ];
+            // build the filter
+            let filter = format!(
+                r#"filter:{{numRaffle:{{equalTo:\"{}\"}}}}"#,
+                raffle_id
+            );
+
+            // build the body
+            let body = format!(
+                r#"{{"query" : "{{endRaffle({}){{ nodes {{ lottoId, hash }} }} }}"}}"#,
+                filter
+            );
+
+            debug!("body: {body}");
+
+            // query the indexer
+            let resp = http_post!(indexer_endpoint, body, headers);
+
+            // check the result
+            if resp.status_code != 200 {
+                ink::env::debug_println!("status code {}", resp.status_code);
+                return Err(ContractError::HttpRequestFailed);
+            }
+
+            // parse the result
+            let result: IndexerHashesResponse = serde_json_core::from_slice(resp.body.as_slice())
+                .or(Err(ContractError::InvalidResponseBody))?
+                .0;
+
+            // add the hashes
+            let mut hashes = Vec::new();
+            for node in result.data.endRaffles.nodes.iter() {
+                // build the accountId from the string address
+                let hash_raw: [u8; 32] = hex::decode(node.hash)
+                    .expect("hex decode failed")
+                    .try_into()
+                    .expect("incorrect length");
+                hashes.push(
+                    hash_raw.
+                    try_into()
+                    .expect("incorrect length")
+                );
+            }
+
+            info!("Hashes: {hashes:02x?}");
+
+            Ok(hashes)
+        }
+
+
 
         /// Returns BadOrigin error if the caller is not the owner
         fn ensure_owner(&self) -> Result<()> {

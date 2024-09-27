@@ -22,13 +22,13 @@ sp-core = { version = "34.0.0", default-features = false, features = ["serde"]}
 pink-extension = { version = "0.5.1", default-features = false }
 phat_offchain_rollup = { git = "https://github.com/GuiGou12358/phat-offchain-rollup", default-features = false, features = ["ink", "evm", "logging"] }
 subrpc = { package = "pink-subrpc", git = "https://github.com/GuiGou12358/phala-blockchain", branch = "test-logging", default-features = false, optional = true }
+hex = { version = "0.4", default-features = false }
 
 [dev-dependencies]
 dotenvy = "0.15"
 env_logger = "0.10.0"
 pink-extension-runtime = { version = "0.4.6", default-features = false }
 hex-literal = "0.4.1"
-hex = { version = "0.4", default-features = false }
 
 [build-dependencies]
 
