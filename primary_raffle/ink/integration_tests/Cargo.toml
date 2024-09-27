@@ -1,0 +1,43 @@
+[package]
+name = "e2e_tests"
+version = "0.1.1"
+authors = ["guigou"]
+edition = "2021"
+
+[dependencies]
+ink = { version = "4.3.0", default-features = false}
+scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
+scale-info = { version = "2", default-features = false, features = ["derive"], optional = true }
+openbrush = { version = "4.0.0-beta", git = "https://github.com/Brushfam/openbrush-contracts", default-features = false, features = ["ownable", "access_control", "upgradeable"] }
+phat_rollup_anchor_ink = { git = "https://github.com/Phala-Network/phat-offchain-rollup" , default-features = false}
+
+lotto = { path = "../logics", default-features = false }
+lotto_contract = { path = "../contracts/lotto", default-features = false, features = ["ink-as-dependency"] }
+
+[dev-dependencies]
+ink_e2e = { version = "4.3.0" }
+hex-literal = { version = "0.4.1" }
+subxt-signer = { version = "0.31.0" }
+
+[lib]
+path = "lib.rs"
+
+[features]
+default = ["std"]
+std = [
+    "ink/std",
+    "scale/std",
+    "scale-info/std",
+    "openbrush/std",
+    "phat_rollup_anchor_ink/std",
+    "lotto/std",
+    "lotto_contract/std",
+]
+ink-as-dependency = []
+e2e-tests = []
+
+[profile.release]
+overflow-checks = false
+
+[profile.dev]
+overflow-checks = false
