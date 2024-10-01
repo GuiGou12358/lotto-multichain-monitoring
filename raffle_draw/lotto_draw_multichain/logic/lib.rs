@@ -3,5 +3,5 @@ pub mod error;
 pub mod indexer;
 pub mod types;
 pub mod raffle;
-mod evm_coder;
-mod wasm_coder;
+pub mod evm_contract;
+pub mod wasm_coder;

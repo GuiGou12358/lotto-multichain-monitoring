@@ -6,6 +6,10 @@ pub enum RaffleDrawError {
     ClientNotConfigured,
     InvalidKeyLength,
     InvalidAddressLength,
+    EvmContractNotConfigured,
+    FailedToDecodeRequest,
+    FailedToEncodeResponse,
+    FailedToEncodeAction,
     NoRequestInQueue,
     FailedToCreateClient,
     FailedToCommitTx,
@@ -25,4 +29,12 @@ pub enum RaffleDrawError {
     InvalidContractId,
     CurrentRaffleUnknown,
     UnauthorizedRaffle,
+}
+
+impl From<phat_offchain_rollup::Error> for RaffleDrawError {
+    fn from(error: phat_offchain_rollup::Error) -> Self {
+        pink_extension::error!("error in the rollup: {:?}", error);
+        ink::env::debug_println!("Error : {:?}", error);
+        RaffleDrawError::FailedToCallRollup
+    }
 }

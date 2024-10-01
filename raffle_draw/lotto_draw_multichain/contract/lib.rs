@@ -14,6 +14,7 @@ mod lotto_draw_multichain {
     use scale::{Decode, Encode};
     use lotto_draw_logic::indexer::Indexer;
     use lotto_draw_logic::error::RaffleDrawError;
+    use lotto_draw_logic::evm_contract::EvmContract;
     use lotto_draw_logic::types::*;
 
     #[ink(storage)]
@@ -260,6 +261,17 @@ mod lotto_draw_multichain {
             };
 
             let response = match message.request {
+                Request::CompleteAllRaffles => {
+                    let all_raffles_completed = self
+                        .inner_complete_all_raffles(
+                            &salt
+                        )?;
+                    if all_raffles_completed {
+                        Response::CompletedRaffles(salt.hashes)
+                    } else {
+                        Response::WaitingSynchronization
+                    }
+                },
                 Request::DrawNumbers(nb_numbers, smallest_number, biggest_number) => self
                     .inner_get_numbers(
                         &salt,
@@ -419,6 +431,51 @@ mod lotto_draw_multichain {
                 .ok_or(ContractError::AddOverFlow)?;
 
             Ok(r as Number)
+        }
+
+
+        fn inner_complete_all_raffles(
+            &self,
+            salt: &SaltVrf,
+        ) -> Result<bool> {
+            let raffle_id = salt.raffle_id;
+            info!(
+                "Synchronize raffle {raffle_id} - complete all raffles"
+            );
+
+            for (_i, key) in self.secondary_consumers_keys.iter().enumerate() {
+
+                // check if the raffle has been already completed on this chain
+                //if salt.hashes[i]
+                // complete the raffle on this chain
+                // get the config linked to this contract
+                let config =  self.secondary_consumers.get(key);
+                // encode the reply
+                let contract = EvmContract::new(config)?;
+                contract.complete_raffle(raffle_id, &self.attest_key)?;
+            }
+
+            Ok(true)
+        }
+
+        fn inner_propagate_result_in_all_raffles(
+            &self,
+            raffle_id: RaffleId,
+        ) -> Result<bool> {
+            info!(
+                "Synchronize raffle {raffle_id} - propagate result"
+            );
+
+            for (_i, key) in self.secondary_consumers_keys.iter().enumerate() {
+                // get the config linked to this contract
+                let config =  self.secondary_consumers.get(key);
+                // encode the reply
+                let contract = EvmContract::new(config)?;
+                // TODO check the winners
+                contract.send_raffle_result(raffle_id, false, Vec::new(), &self.attest_key)?;
+            }
+
+            Ok(true)
         }
 
 

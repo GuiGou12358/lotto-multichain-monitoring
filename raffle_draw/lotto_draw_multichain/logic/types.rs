@@ -1,3 +1,8 @@
+extern crate alloc;
+
+use alloc::vec::Vec;
+use ink::prelude::string::String;
+
 pub type LottoId = u8;
 pub type RaffleId = u32;
 pub type Number = u16;
@@ -58,6 +63,8 @@ pub struct LottoRequestMessage {
     derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
 )]
 pub enum Request {
+    /// request to complete the lotto draw on all chains
+    CompleteAllRaffles,
     /// request to lotto_draw the n number between min and max values
     /// arg1: number of numbers for the lotto_draw
     /// arg2:  smallest number for the lotto_draw
@@ -83,6 +90,10 @@ pub struct LottoResponseMessage {
     derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
 )]
 pub enum Response {
+    // waiting synchronization between contracts
+    WaitingSynchronization,
+    /// list of hashes for all raffles completed on different chain
+    CompletedRaffles(Vec<Hash>),
     /// list of numbers
     Numbers(Vec<Number>),
     /// list of winners
