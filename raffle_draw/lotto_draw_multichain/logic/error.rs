@@ -7,6 +7,7 @@ pub enum RaffleDrawError {
     InvalidKeyLength,
     InvalidAddressLength,
     EvmContractNotConfigured,
+    WasmContractNotConfigured,
     FailedToDecodeRequest,
     FailedToEncodeResponse,
     FailedToEncodeAction,

@@ -16,6 +16,7 @@ mod lotto_draw_multichain {
     use lotto_draw_logic::error::RaffleDrawError;
     use lotto_draw_logic::evm_contract::EvmContract;
     use lotto_draw_logic::types::*;
+    use lotto_draw_logic::wasm_contract::WasmContract;
 
     #[ink(storage)]
     pub struct Lotto {
@@ -230,8 +231,9 @@ mod lotto_draw_multichain {
         /// Processes a request by a rollup transaction
         #[ink(message)]
         pub fn answer_request(&self) -> Result<Option<Vec<u8>>> {
+
             let config = self.ensure_client_configured()?;
-            let mut client = connect(config)?;
+            let mut client = WasmContract::connect(config)?;
 
             // Get a request if presents
             let request: LottoRequestMessage = client
@@ -245,7 +247,8 @@ mod lotto_draw_multichain {
             // Attach an action to the tx by:
             client.action(Action::Reply(response.encode()));
 
-            maybe_submit_tx(client, &self.attest_key, config.sender_key.as_ref())
+            let tx = WasmContract::maybe_submit_tx(client, &self.attest_key, config.sender_key.as_ref())?;
+            Ok(tx)
         }
 
         fn handle_request(&self, message: LottoRequestMessage) -> Result<LottoResponseMessage> {
@@ -318,7 +321,7 @@ mod lotto_draw_multichain {
                 hashes,
             };
 
-            let mut client = connect(config)?;
+            let mut client = WasmContract::connect(config)?;
 
             const LAST_RAFFLE_FOR_VERIF: u32 = ink::selector_id!("LAST_RAFFLE_FOR_VERIF");
 
@@ -496,50 +499,6 @@ mod lotto_draw_multichain {
         }
     }
 
-    fn connect(config: &WasmContractConfig) -> Result<InkRollupClient> {
-        let result = InkRollupClient::new(
-            &config.rpc,
-            config.pallet_id,
-            config.call_id,
-            &config.contract_id,
-        )
-        .log_err("failed to create rollup client");
-
-        match result {
-            Ok(client) => Ok(client),
-            Err(e) => {
-                error!("Error : {:?}", e);
-                Err(ContractError::FailedToCreateClient)
-            }
-        }
-    }
-
-    fn maybe_submit_tx(
-        client: InkRollupClient,
-        attest_key: &[u8; 32],
-        sender_key: Option<&[u8; 32]>,
-    ) -> Result<Option<Vec<u8>>> {
-        let maybe_submittable = client
-            .commit()
-            .log_err("failed to commit")
-            .map_err(|_| ContractError::FailedToCommitTx)?;
-
-        if let Some(submittable) = maybe_submittable {
-            let tx_id = if let Some(sender_key) = sender_key {
-                // Prefer to meta-tx
-                submittable
-                    .submit_meta_tx(attest_key, sender_key)
-                    .log_err("failed to submit rollup meta-tx")?
-            } else {
-                // Fallback to account-based authentication
-                submittable
-                    .submit(attest_key)
-                    .log_err("failed to submit rollup tx")?
-            };
-            return Ok(Some(tx_id));
-        }
-        Ok(None)
-    }
 
     #[cfg(test)]
     mod tests {
@@ -820,69 +779,6 @@ mod lotto_draw_multichain {
             let r = lotto.answer_request().expect("failed to answer request");
             ink::env::debug_println!("answer request: {r:?}");
         }
-
-
-        #[ink::test]
-        fn encode_response_numbers() {
-            let _ = env_logger::try_init();
-            pink_extension_runtime::mock_ext::mock_all_ext();
-
-            let lotto = init_contract();
-
-            //Request received for raffle 6 - draw 4 numbers between 1 and 50
-            // Numbers: [4, 49, 41, 16]
-
-            let raffle_id = 6;
-            let numbers = vec![4, 49, 41, 16];
-
-            let response = LottoResponseMessage {
-                request: LottoRequestMessage {raffle_id, request: Request::DrawNumbers(4, 1, 50)},
-                response: Response::Numbers(numbers.clone()),
-            };
-            let encoded_response = response.encode();
-            ink::env::debug_println!("Reply response numbers: {encoded_response:02x?}");
-
-            let response = LottoResponseMessage {
-                request: LottoRequestMessage {raffle_id, request: Request::CheckWinners(numbers)},
-                response: Response::Winners(vec![]),
-            };
-            let encoded_response = response.encode();
-            ink::env::debug_println!("Reply response winners: {encoded_response:02x?}");
-
-        }
-
-
-        #[ink::test]
-        fn encode_keys() {
-
-            const QUEUE_PREFIX : &[u8] = b"q/";
-
-            const QUEUE_HEAD_KEY : &[u8] = b"_head";
-            let head_key = [QUEUE_PREFIX, QUEUE_HEAD_KEY].concat();
-            ink::env::debug_println!("queue head key: {head_key:02x?}");
-
-            const QUEUE_TAIL_KEY : &[u8] = b"_tail";
-            let tail_key = [QUEUE_PREFIX, QUEUE_TAIL_KEY].concat();
-            ink::env::debug_println!("queue tail key: {tail_key:02x?}");
-
-            let id: u32 = 11;
-            let key = [QUEUE_PREFIX, &id.encode()].concat();
-            ink::env::debug_println!("queue key: {key:02x?}");
-
-        }
-
-        #[ink::test]
-        fn decode_message() {
-            let encoded_message : Vec<u8> = hex::decode("0600000001100400310029001000").expect("hex decode failed");
-            let message = LottoRequestMessage::decode(&mut encoded_message.as_slice());
-            ink::env::debug_println!("message: {message:?}");
-
-            let encoded_message : Vec<u8> = hex::decode("07000000000401003200").expect("hex decode failed");
-            let message = LottoRequestMessage::decode(&mut encoded_message.as_slice());
-            ink::env::debug_println!("message: {message:?}");
-
-        }
-
 
     }
 }

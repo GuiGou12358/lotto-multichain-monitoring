@@ -4,4 +4,4 @@ pub mod indexer;
 pub mod types;
 pub mod raffle;
 pub mod evm_contract;
-pub mod wasm_coder;
+pub mod wasm_contract;
