@@ -78,7 +78,7 @@ impl Indexer {
         self,
         raffle_id: RaffleId,
         numbers: &Vec<Number>,
-    ) -> Result<Vec<AccountId32>, RaffleDrawError> {
+    ) -> Result<(Vec<AccountId32>, Vec<AccountId20>), RaffleDrawError> {
         info!(
                 "Request received to get the winners for raffle id {raffle_id} and numbers {numbers:?} "
             );
@@ -140,7 +140,7 @@ impl Indexer {
 
         info!("Winners: {winners:02x?}");
 
-        Ok(winners)
+        Ok((winners, Vec::new())) // TODO manage AccountId32 and AccountId20
     }
 
     pub fn query_hashes(self, raffle_id: RaffleId) -> Result<Vec<Hash>, RaffleDrawError> {
@@ -225,7 +225,8 @@ mod tests {
 
         let indexer = new_indexer();
         let winners = indexer.query_winners(draw_num, &numbers).unwrap();
-        assert_eq!(0, winners.len());
+        assert_eq!(0, winners.0.len());
+        assert_eq!(0, winners.1.len());
     }
 
     #[ink::test]

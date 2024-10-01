@@ -2,6 +2,6 @@
 pub mod error;
 pub mod indexer;
 pub mod types;
-pub mod raffle;
+pub mod draw;
 pub mod evm_contract;
 pub mod wasm_contract;

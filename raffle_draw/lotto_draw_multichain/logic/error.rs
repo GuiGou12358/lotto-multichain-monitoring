@@ -2,16 +2,13 @@
 #[derive(Debug, Eq, PartialEq, scale::Encode, scale::Decode)]
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
 pub enum RaffleDrawError {
-    BadOrigin,
-    ClientNotConfigured,
     InvalidKeyLength,
-    InvalidAddressLength,
     EvmContractNotConfigured,
     WasmContractNotConfigured,
     FailedToDecodeRequest,
     FailedToEncodeResponse,
     FailedToEncodeAction,
-    NoRequestInQueue,
+    //NoRequestInQueue,
     FailedToCreateClient,
     FailedToCommitTx,
     FailedToCallRollup,
@@ -22,14 +19,11 @@ pub enum RaffleDrawError {
     InvalidResponseBody,
     InvalidSs58Address,
     // error when drawing the numbers
+    RaffleConfigInvalid,
     MinGreaterThanMax,
     AddOverFlow,
     SubOverFlow,
     DivByZero,
-    // error when verify the numbers
-    InvalidContractId,
-    CurrentRaffleUnknown,
-    UnauthorizedRaffle,
 }
 
 impl From<phat_offchain_rollup::Error> for RaffleDrawError {

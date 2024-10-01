@@ -145,7 +145,7 @@ mod tests {
 
         let response = LottoResponseMessage {
             request: LottoRequestMessage {raffle_id, request: Request::CheckWinners(numbers)},
-            response: Response::Winners(vec![]),
+            response: Response::Winners(vec![], vec![]),
         };
         let encoded_response = response.encode();
         ink::env::debug_println!("Reply response winners: {encoded_response:02x?}");

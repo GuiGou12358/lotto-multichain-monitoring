@@ -232,7 +232,7 @@ fn encode_response(message: &LottoResponseMessage) -> Result<Vec<u8>, RaffleDraw
                 Token::Bytes(response),
             ])
         }
-        (Request::CheckWinners(ref numbers), Response::Winners(winners)) => {
+        (Request::CheckWinners(ref numbers), Response::Winners(substrate_addresses, evm_addresses)) => {
             let numbers: Vec<Token> = numbers
                 .into_iter()
                 .map(|n: &Number| Token::Uint((*n).into()))
@@ -338,7 +338,7 @@ mod tests {
                 raffle_id,
                 request: Request::CheckWinners(numbers),
             },
-            response: Response::Winners(vec![]),
+            response: Response::Winners(vec![], vec![]),
         };
         let encoded_response =
             super::encode_response(&response).expect("Failed to encode response");

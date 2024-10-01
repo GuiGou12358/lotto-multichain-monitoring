@@ -79,7 +79,7 @@ pub enum Request {
 #[derive(scale::Encode, scale::Decode, Debug)]
 pub struct LottoResponseMessage {
     /// initial request
-    pub request: LottoRequestMessage,
+    pub request: LottoRequestMessage, // TODO hash the request
     /// response
     pub response: Response,
 }
@@ -95,7 +95,7 @@ pub enum Response {
     /// list of hashes for all raffles completed on different chain
     CompletedRaffles(Vec<Hash>),
     /// list of numbers
-    Numbers(Vec<Number>),
+    Numbers(Vec<Number>), // TODO add the salt hash
     /// list of winners
-    Winners(Vec<AccountId32>), // TODO manage AccountId20
+    Winners(Vec<AccountId32>, Vec<AccountId20>), // TODO manage AccountId20
 }

@@ -8,13 +8,15 @@ mod lotto_draw_multichain {
     use alloc::vec::Vec;
     use ink::prelude::string::String;
     use ink::storage::Mapping;
-    use phat_offchain_rollup::clients::ink::{Action, InkRollupClient};
+    use phat_offchain_rollup::clients::ink::{Action};
     use pink_extension::chain_extension::signing;
-    use pink_extension::{error, info, vrf, ResultExt};
+    use pink_extension::{error, info, ResultExt};
     use scale::{Decode, Encode};
     use lotto_draw_logic::indexer::Indexer;
     use lotto_draw_logic::error::RaffleDrawError;
+    use lotto_draw_logic::error::RaffleDrawError::AddOverFlow;
     use lotto_draw_logic::evm_contract::EvmContract;
+    use lotto_draw_logic::draw::Draw;
     use lotto_draw_logic::types::*;
     use lotto_draw_logic::wasm_contract::WasmContract;
 
@@ -41,25 +43,11 @@ mod lotto_draw_multichain {
         InvalidKeyLength,
         InvalidAddressLength,
         NoRequestInQueue,
-        FailedToCreateClient,
-        FailedToCommitTx,
         FailedToCallRollup,
-        // error when drawing the numbers
-        MinGreaterThanMax,
-        AddOverFlow,
-        SubOverFlow,
-        DivByZero,
         // error when verify the numbers
         InvalidContractId,
         CurrentRaffleUnknown,
         UnauthorizedRaffle,
-    }
-
-    #[derive(scale::Encode)]
-    struct SaltVrf {
-        //primary_consumer: ContractId,
-        raffle_id: RaffleId,
-        hashes: Vec<lotto_draw_logic::types::Hash>,
     }
 
     type Result<T> = core::result::Result<T, ContractError>;
@@ -255,29 +243,25 @@ mod lotto_draw_multichain {
 
             let raffle_id = message.raffle_id;
 
-            let indexer = Indexer::new(self.get_indexer_url())?;
-            let hashes = indexer.query_hashes(raffle_id)?;
-
-            let salt = SaltVrf {
-                raffle_id,
-                hashes,
-            };
-
             let response = match message.request {
                 Request::CompleteAllRaffles => {
-                    let all_raffles_completed = self
-                        .inner_complete_all_raffles(
-                            &salt
-                        )?;
+                    match self.inner_complete_all_raffles(raffle_id)? {
+                        (true, hashes) => Response::CompletedRaffles(hashes),
+                        (false, _) => Response::WaitingSynchronization,
+
+                    }
+                    /*
                     if all_raffles_completed {
-                        Response::CompletedRaffles(salt.hashes)
+                        Response::CompletedRaffles(hashes)
                     } else {
                         Response::WaitingSynchronization
                     }
+
+                     */
                 },
                 Request::DrawNumbers(nb_numbers, smallest_number, biggest_number) => self
                     .inner_get_numbers(
-                        &salt,
+                        raffle_id,
                         nb_numbers,
                         smallest_number,
                         biggest_number,
@@ -285,8 +269,8 @@ mod lotto_draw_multichain {
                     .map(Response::Numbers)?,
                 Request::CheckWinners(ref numbers) => {
                     let indexer = Indexer::new(self.get_indexer_url())?;
-                    indexer.query_winners(message.raffle_id, numbers)
-                        .map(Response::Winners)?
+                    indexer.query_winners(raffle_id, numbers)
+                        .map(|(substrate_addresses, evm_addresses)| Response::Winners(substrate_addresses, evm_addresses))?
                 }
             };
 
@@ -316,11 +300,6 @@ mod lotto_draw_multichain {
                 return Err(ContractError::InvalidContractId);
             }
 
-            let salt = SaltVrf {
-                raffle_id,
-                hashes,
-            };
-
             let mut client = WasmContract::connect(config)?;
 
             const LAST_RAFFLE_FOR_VERIF: u32 = ink::selector_id!("LAST_RAFFLE_FOR_VERIF");
@@ -335,130 +314,62 @@ mod lotto_draw_multichain {
                 return Err(ContractError::UnauthorizedRaffle);
             }
 
-            self.inner_verify_numbers(
-                &salt,
-                nb_numbers,
-                smallest_number,
-                biggest_number,
-                numbers,
-            )
-        }
-
-        pub fn inner_verify_numbers(
-            &self,
-            salt: &SaltVrf,
-            nb_numbers: u8,
-            smallest_number: Number,
-            biggest_number: Number,
-            numbers: Vec<Number>,
-        ) -> Result<bool> {
-            let winning_numbers =
-                self.inner_get_numbers(salt, nb_numbers, smallest_number, biggest_number)?;
-            if winning_numbers.len() != numbers.len() {
-                return Ok(false);
-            }
-
-            for n in &numbers {
-                if !winning_numbers.contains(n) {
-                    return Ok(false);
-                }
-            }
-
-            Ok(true)
+            let draw = Draw::new(nb_numbers, smallest_number, biggest_number)?;
+            let result = draw.verify_numbers(raffle_id, hashes, numbers)?;
+            Ok(result)
         }
 
         fn inner_get_numbers(
             &self,
-            salt: &SaltVrf,
+            raffle_id: RaffleId,
             nb_numbers: u8,
             smallest_number: Number,
             biggest_number: Number,
         ) -> Result<Vec<Number>> {
-            let raffle_id = salt.raffle_id;
+
             info!(
                 "Request received for raffle {raffle_id} - draw {nb_numbers} numbers between {smallest_number} and {biggest_number}"
             );
 
-            if smallest_number > biggest_number {
-                return Err(ContractError::MinGreaterThanMax);
-            }
+            let indexer = Indexer::new(self.get_indexer_url())?;
+            let hashes = indexer.query_hashes(raffle_id)?;
 
-            let mut numbers = Vec::new();
-            let mut i: u8 = 0;
-
-            use ink::env::hash;
-            let encoded_salt = Encode::encode(salt);
-            let mut salt_hash = <hash::Blake2x256 as hash::HashOutput>::Type::default();
-            ink::env::hash_bytes::<hash::Blake2x256>(&encoded_salt, &mut salt_hash);
-
-            while numbers.len() < nb_numbers as usize {
-                // build a salt for this lotto_draw number
-                let mut salt: Vec<u8> = Vec::new();
-                salt.extend_from_slice(&i.to_be_bytes());
-                salt.extend_from_slice(&salt_hash); // TODO maybe include i in hash salt
-
-                // lotto_draw the number
-                let number = self.inner_get_number(salt, smallest_number, biggest_number)?;
-                // check if the number has already been drawn
-                if !numbers.iter().any(|&n| n == number) {
-                    // the number has not been drawn yet => we added it
-                    numbers.push(number);
-                }
-                //i += 1;
-                i = i.checked_add(1).ok_or(ContractError::AddOverFlow)?;
-            }
-
-            info!("Numbers: {numbers:?}");
-
-            Ok(numbers)
+            let draw = Draw::new(nb_numbers, smallest_number, biggest_number)?;
+            let result = draw.get_numbers(raffle_id, hashes)?;
+            Ok(result)
         }
-
-        fn inner_get_number(&self, salt: Vec<u8>, min: Number, max: Number) -> Result<Number> {
-            let output = vrf(&salt);
-            // keep only 8 bytes to compute the random u6²
-            let mut arr = [0x00; 8];
-            arr.copy_from_slice(&output[0..8]);
-            let rand_u64 = u64::from_le_bytes(arr);
-
-            // r = rand_u64() % (max - min + 1) + min
-            // use u128 because (max - min + 1) can be equal to (U64::MAX - 0 + 1)
-            let a = (max as u128)
-                .checked_sub(min as u128)
-                .ok_or(ContractError::SubOverFlow)?
-                .checked_add(1u128)
-                .ok_or(ContractError::AddOverFlow)?;
-            //let b = (rand_u64 as u128) % a;
-            let b = (rand_u64 as u128).checked_rem_euclid(a).ok_or(ContractError::DivByZero)?;
-            let r = b
-                .checked_add(min as u128)
-                .ok_or(ContractError::AddOverFlow)?;
-
-            Ok(r as Number)
-        }
-
 
         fn inner_complete_all_raffles(
             &self,
-            salt: &SaltVrf,
-        ) -> Result<bool> {
-            let raffle_id = salt.raffle_id;
+            raffle_id: RaffleId,
+        ) -> Result<(bool, Vec<lotto_draw_logic::types::Hash>)> {
+
             info!(
                 "Synchronize raffle {raffle_id} - complete all raffles"
             );
 
+            let indexer = Indexer::new(self.get_indexer_url())?;
+            let hashes = indexer.query_hashes(raffle_id)?;
+
+            let expected_nb_hashes = self.secondary_consumers_keys.len().checked_add(1).ok_or(AddOverFlow)?;
+            if hashes.len() == expected_nb_hashes {
+                // we already have all hashes, it means all raffles are completed
+                return Ok((true, hashes));
+            }
+
             for (_i, key) in self.secondary_consumers_keys.iter().enumerate() {
 
-                // check if the raffle has been already completed on this chain
-                //if salt.hashes[i]
-                // complete the raffle on this chain
+                // TODO complete the contract raffle only if we don't have the hash
+
                 // get the config linked to this contract
                 let config =  self.secondary_consumers.get(key);
-                // encode the reply
+                // complete the raffle
                 let contract = EvmContract::new(config)?;
                 contract.complete_raffle(raffle_id, &self.attest_key)?;
             }
 
-            Ok(true)
+            // we have to wait
+            Ok((false, hashes))
         }
 
         fn inner_propagate_result_in_all_raffles(
@@ -566,206 +477,6 @@ mod lotto_draw_multichain {
             //lotto.set_attest_key(Some(attest_key)).unwrap();
 
             lotto
-        }
-
-        #[ink::test]
-        fn test_get_numbers() {
-            let _ = env_logger::try_init();
-            pink_extension_runtime::mock_ext::mock_all_ext();
-
-            let lotto = init_contract();
-
-            let raffle_id = 1;
-            let nb_numbers = 5;
-            let smallest_number = 1;
-            let biggest_number = 50;
-
-            let salt = SaltVrf {
-                raffle_id,
-                hashes: vec![]
-            };
-
-            let result = lotto
-                .inner_get_numbers(&salt, nb_numbers, smallest_number, biggest_number)
-                .unwrap();
-            assert_eq!(nb_numbers as usize, result.len());
-            for &n in result.iter() {
-                assert!(n >= smallest_number);
-                assert!(n <= biggest_number);
-            }
-
-            ink::env::debug_println!("random numbers: {result:?}");
-        }
-
-        #[ink::test]
-        fn test_get_numbers_from_1_to_5() {
-            let _ = env_logger::try_init();
-            pink_extension_runtime::mock_ext::mock_all_ext();
-
-            let lotto = init_contract();
-
-            let raffle_id = 1;
-            let nb_numbers = 5;
-            let smallest_number = 1;
-            let biggest_number = 5;
-
-            let salt = SaltVrf {
-                raffle_id,
-                hashes: vec![]
-            };
-
-            let result = lotto
-                .inner_get_numbers(&salt, nb_numbers, smallest_number, biggest_number)
-                .unwrap();
-            assert_eq!(nb_numbers as usize, result.len());
-            for &n in result.iter() {
-                assert!(n >= smallest_number);
-                assert!(n <= biggest_number);
-            }
-
-            ink::env::debug_println!("random numbers: {result:?}");
-        }
-
-        #[ink::test]
-        fn test_with_different_draw_num() {
-            let _ = env_logger::try_init();
-            pink_extension_runtime::mock_ext::mock_all_ext();
-
-            let lotto = init_contract();
-
-            let nb_numbers = 5;
-            let smallest_number = 1;
-            let biggest_number = 50;
-
-            let mut results = Vec::new();
-
-            for i in 0..100 {
-
-                let salt = SaltVrf {
-                    raffle_id: i,
-                    hashes: vec![]
-                };
-
-                let result = lotto
-                    .inner_get_numbers(&salt, nb_numbers, smallest_number, biggest_number)
-                    .unwrap();
-                // this result must be different from the previous ones
-                results.iter().for_each(|r| assert_ne!(result, *r));
-
-                // same request message means same result
-                let result_2 = lotto
-                    .inner_get_numbers(&salt, nb_numbers, smallest_number, biggest_number)
-                    .unwrap();
-                assert_eq!(result, result_2);
-
-                results.push(result);
-            }
-        }
-
-        #[ink::test]
-        fn test_verify_numbers() {
-            let _ = env_logger::try_init();
-            pink_extension_runtime::mock_ext::mock_all_ext();
-
-            let lotto = init_contract();
-
-            let raffle_id = 1;
-            let nb_numbers = 5;
-            let smallest_number = 1;
-            let biggest_number = 50;
-
-            let salt = SaltVrf {
-                raffle_id,
-                hashes: vec![]
-            };
-
-            let numbers = lotto
-                .inner_get_numbers(&salt, nb_numbers, smallest_number, biggest_number)
-                .unwrap();
-
-            assert_eq!(
-                Ok(true),
-                lotto.inner_verify_numbers(
-                    &salt,
-                    nb_numbers,
-                    smallest_number,
-                    biggest_number,
-                    numbers.clone()
-                )
-            );
-
-            let other_salt = SaltVrf {
-                raffle_id : raffle_id + 1,
-                hashes: vec![]
-            };
-
-            assert_eq!(
-                Ok(false),
-                lotto.inner_verify_numbers(
-                    &other_salt,
-                    nb_numbers,
-                    smallest_number,
-                    biggest_number,
-                    numbers.clone()
-                )
-            );
-        }
-
-        #[ink::test]
-        fn test_verify_numbers_with_bad_contract_id() {
-            let _ = env_logger::try_init();
-            pink_extension_runtime::mock_ext::mock_all_ext();
-
-            let mut lotto = init_contract();
-
-            let raffle_id = 1;
-            let nb_numbers = 5;
-            let smallest_number = 1;
-            let biggest_number = 50;
-
-            let salt = SaltVrf {
-                raffle_id,
-                hashes: vec![]
-            };
-
-            let numbers = lotto
-                .inner_get_numbers(&salt, nb_numbers, smallest_number, biggest_number)
-                .unwrap();
-
-            assert_eq!(
-                Ok(true),
-                lotto.inner_verify_numbers(
-                    &salt,
-                    nb_numbers,
-                    smallest_number,
-                    biggest_number,
-                    numbers.clone()
-                )
-            );
-
-            let target_contract = lotto.get_primary_consumer().unwrap();
-
-            let bad_contract_id: WasmContractId = [0; 32];
-            lotto
-                .set_primary_consumer(
-                    target_contract.0,
-                    target_contract.1,
-                    target_contract.2,
-                    bad_contract_id.to_vec(),
-                    None,
-                )
-                .unwrap();
-
-            assert_eq!(
-                Ok(false),
-                lotto.inner_verify_numbers(
-                    &salt,
-                    nb_numbers,
-                    smallest_number,
-                    biggest_number,
-                    numbers.clone()
-                )
-            );
         }
 
         #[ink::test]
