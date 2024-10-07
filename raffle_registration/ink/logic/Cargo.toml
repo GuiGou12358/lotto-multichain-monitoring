@@ -1,5 +1,5 @@
 [package]
-name = "lotto"
+name = "lotto_registration"
 version = "1.0.0"
 authors = ["guigou"]
 edition = "2021"

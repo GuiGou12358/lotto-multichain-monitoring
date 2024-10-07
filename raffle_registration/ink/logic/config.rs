@@ -1,6 +1,6 @@
-use crate::traits::error::RaffleError;
-use crate::traits::error::RaffleError::*;
-use crate::traits::Number;
+use crate::error::RaffleError;
+use crate::error::RaffleError::*;
+use crate::Number;
 use openbrush::traits::Storage;
 
 #[derive(Default, Debug)]

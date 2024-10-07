@@ -5,8 +5,8 @@
 pub mod lotto_contract {
     use ink::codegen::{EmitEvent, Env};
     use ink::prelude::vec::Vec;
-    use lotto::traits::{
-        config, config::*, error::*, raffle, raffle::*, reward, reward::*, Number, RaffleId,
+    use lotto_registration::{
+        config, config::*, error::*, raffle, raffle::*, Number, DrawNumber,
         LOTTO_MANAGER_ROLE,
     };
     use openbrush::contracts::access_control::*;
@@ -17,46 +17,46 @@ pub mod lotto_contract {
     };
     use scale::Encode;
 
-    /// Event emitted when the participant is registered
+    /// Event emitted when the participation is registered
     #[ink(event)]
     pub struct ParticipationRegistered {
         #[ink(topic)]
-        raffle_id: RaffleId,
+        contract_id: AccountId,
+        #[ink(topic)]
+        draw_number: DrawNumber,
         #[ink(topic)]
         participant: AccountId,
         numbers: Vec<Number>,
     }
 
-    /// Event emitted when the raffle is started
+    /// Event emitted when the registrations are open
     #[ink(event)]
-    pub struct RaffleStarted {
+    pub struct RegistrationsOpen {
         #[ink(topic)]
-        raffle_id: RaffleId,
+        contract_id: AccountId,
+        #[ink(topic)]
+        draw_number: DrawNumber,
     }
 
-    /// Event emitted when the raffle is ended
+    /// Event emitted when the registrations are closed
     #[ink(event)]
-    pub struct RaffleEnded {
+    pub struct RegistrationsClosed {
         #[ink(topic)]
-        raffle_id: RaffleId,
+        contract_id: AccountId,
+        #[ink(topic)]
+        draw_number: DrawNumber,
     }
 
     /// Event emitted when the raffle result is received
     #[ink(event)]
     pub struct ResultReceived {
         #[ink(topic)]
-        raffle_id: RaffleId,
-        numbers: Vec<Number>,
-    }
-
-    /// Event emitted when the winners are revealed
-    #[ink(event)]
-    pub struct WinnersRevealed {
+        contract_id: AccountId,
         #[ink(topic)]
-        raffle_id: RaffleId,
+        draw_number: DrawNumber,
         winners: Vec<AccountId>,
     }
-
+/*
     /// Event emitted when a reward is pending
     #[ink(event)]
     pub struct PendingReward {
@@ -72,6 +72,7 @@ pub mod lotto_contract {
         account: AccountId,
         amount: Balance,
     }
+ */
 
     /// Errors occurred in the contract
     #[derive(Debug, Eq, PartialEq, scale::Encode, scale::Decode)]
@@ -112,55 +113,20 @@ pub mod lotto_contract {
         }
     }
 
-    /// Message to request the lotto lotto_draw or the list of winners
-    /// message pushed in the queue by the Ink! smart contract and read by the offchain rollup
-    #[derive(Eq, PartialEq, Clone, scale::Encode, scale::Decode)]
-    #[cfg_attr(
-        feature = "std",
-        derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
-    )]
-    pub struct LottoRequestMessage {
-        /// raffle id
-        pub raffle_id: RaffleId,
-        /// request
-        pub request: Request,
-    }
-
-    #[derive(Eq, PartialEq, Clone, scale::Encode, scale::Decode)]
-    #[cfg_attr(
-        feature = "std",
-        derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
-    )]
-    pub enum Request {
-        /// request to lotto_draw the n number between min and max values
-        /// arg1: number of numbers for the lotto_draw
-        /// arg2:  smallest number for the lotto_draw
-        /// arg2:  biggest number for the lotto_draw
-        DrawNumbers(u8, Number, Number),
-        /// request to check if there is a winner for the given numbers
-        CheckWinners(Vec<Number>),
-    }
-
-    /// Message sent to provide the lotto lotto_draw or the list of winners
-    /// response pushed in the queue by the offchain rollup and read by the Ink! smart contract
+    /// Message to request for action
+    /// Message sent by the offchain rollup to the Ink! smart contract
     #[derive(scale::Encode, scale::Decode)]
-    pub struct LottoResponseMessage {
-        /// initial request
-        pub request: LottoRequestMessage,
-        /// response
-        pub response: Response,
-    }
-
-    #[derive(Eq, PartialEq, Clone, scale::Encode, scale::Decode)]
+    /*
     #[cfg_attr(
         feature = "std",
         derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
     )]
-    pub enum Response {
-        /// list of numbers
-        Numbers(Vec<Number>),
-        /// list of winners
-        Winners(Vec<AccountId>),
+     */
+    pub enum RequestForAction {
+        SetConfig(Config),
+        OpenRegistrations(DrawNumber),
+        CloseRegistrations(DrawNumber),
+        SetResults(DrawNumber, Vec<AccountId>),
     }
 
     /// Contract storage
@@ -179,13 +145,15 @@ pub mod lotto_contract {
         config: config::Data,
         #[storage_field]
         lotto: raffle::Data,
+        /*
         #[storage_field]
         reward: reward::Data,
+         */
     }
 
     impl RaffleConfig for Contract {}
     impl Raffle for Contract {}
-    impl RewardManager for Contract {}
+    //impl RewardManager for Contract {}
 
     impl RollupAnchor for Contract {}
     impl MetaTransaction for Contract {}
@@ -199,9 +167,6 @@ pub mod lotto_contract {
             ownable::Internal::_init_with_owner(&mut instance, caller);
             // set the admin of this contract
             access_control::Internal::_init_with_admin(&mut instance, Some(caller));
-            // grant the role manager
-            AccessControl::grant_role(&mut instance, LOTTO_MANAGER_ROLE, Some(caller))
-                .expect("Should grant the role LOTTO_MANAGER_ROLE");
             instance
         }
 
@@ -213,9 +178,11 @@ pub mod lotto_contract {
             Raffle::can_participate(self)?;
             // save the participation with an event
             let participant = Self::env().caller();
-            let raffle_id = Raffle::get_current_raffle_id(self);
+            let contract_id = Self::env().account_id();
+            let draw_number = Raffle::get_draw_number(self);
             self.env().emit_event(ParticipationRegistered {
-                raffle_id,
+                contract_id,
+                draw_number,
                 participant,
                 numbers,
             });
@@ -237,11 +204,15 @@ pub mod lotto_contract {
 
         #[ink(message)]
         #[openbrush::modifiers(access_control::only_role(LOTTO_MANAGER_ROLE))]
-        pub fn set_config(&mut self, config: Config) -> Result<(), RaffleError> {
+        pub fn set_config(&mut self, config: Config) -> Result<(), ContractError> {
+            self.inner_set_config(config)
+        }
+
+        fn inner_set_config(&mut self, config: Config) -> Result<(), ContractError> {
             // check the status, we can set the config only when the raffle is not started yet
-            let status = Raffle::get_current_status(self);
+            let status = Raffle::get_status(self);
             if status != Status::NotStarted {
-                return Err(RaffleError::IncorrectStatus);
+                return Err(ContractError::RaffleError(RaffleError::IncorrectStatus));
             }
 
             // update the config
@@ -252,106 +223,62 @@ pub mod lotto_contract {
 
         #[ink(message)]
         #[openbrush::modifiers(access_control::only_role(LOTTO_MANAGER_ROLE))]
-        pub fn start_raffle(&mut self) -> Result<RaffleId, ContractError> {
-            let raffle_id = self.inner_start_raffle()?;
-            Ok(raffle_id)
+        pub fn open_registrations(&mut self, draw_number: DrawNumber) -> Result<(), ContractError> {
+            self.inner_open_registrations(draw_number)
         }
 
-        fn inner_start_raffle(&mut self) -> Result<RaffleId, ContractError> {
-            // start new raffle
-            let raffle_id = Raffle::start_new_raffle(self)?;
+        fn inner_open_registrations(&mut self, draw_number: DrawNumber) -> Result<(), ContractError> {
+            // Open the registrations
+            Raffle::open_registrations(self, draw_number)?;
 
             // emit the event
-            self.env().emit_event(RaffleStarted { raffle_id });
+            let contract_id = Self::env().account_id();
+            self.env().emit_event(RegistrationsOpen { contract_id, draw_number });
 
-            Ok(raffle_id)
+            Ok(())
         }
 
         #[ink(message)]
         #[openbrush::modifiers(access_control::only_role(LOTTO_MANAGER_ROLE))]
-        pub fn complete_raffle(&mut self) -> Result<(), ContractError> {
-            // stop the current raffle
-            Raffle::stop_current_raffle(self)?;
+        pub fn close_registrations(&mut self, draw_number: DrawNumber) -> Result<(), ContractError> {
+            self.inner_close_registrations(draw_number)
+        }
+
+        fn inner_close_registrations(&mut self, draw_number: DrawNumber) -> Result<(), ContractError> {
+            // Close the registrations
+            Raffle::close_registrations(self, draw_number)?;
 
             // emit the event
-            let raffle_id = Raffle::get_current_raffle_id(self);
-            self.env().emit_event(RaffleEnded { raffle_id });
-
-            // request the draw numbers
-            let config = RaffleConfig::ensure_config(self)?;
-            let message = LottoRequestMessage {
-                raffle_id,
-                request: Request::DrawNumbers(
-                    config.nb_numbers,
-                    config.min_number,
-                    config.max_number,
-                ),
-            };
-            RollupAnchor::push_message(self, &message)?;
+            let contract_id = Self::env().account_id();
+            self.env().emit_event(RegistrationsClosed { contract_id, draw_number });
 
             Ok(())
         }
 
         fn inner_set_results(
             &mut self,
-            raffle_id: RaffleId,
-            config: Config,
-            numbers: Vec<Number>,
-        ) -> Result<(), ContractError> {
-            // check if the config used to select the number is correct
-            RaffleConfig::ensure_same_config(self, &config)?;
-
-            // check if the numbers are correct
-            RaffleConfig::check_numbers(self, &numbers)?;
-
-            // set the result
-            Raffle::set_results(self, raffle_id, numbers.clone())?;
-
-            // save in the kv store the last raffle id used for verification
-            const LAST_RAFFLE: u32 = ink::selector_id!("LAST_RAFFLE_FOR_VERIF");
-            RollupAnchor::set_value(self, &LAST_RAFFLE.encode(), Some(&raffle_id.encode()));
-
-            // emmit the event
-            self.env().emit_event(ResultReceived {
-                raffle_id,
-                numbers: numbers.clone(),
-            });
-
-            // request to check the winners
-            let message = LottoRequestMessage {
-                raffle_id,
-                request: Request::CheckWinners(numbers),
-            };
-            self.push_message(&message)?;
-
-            Ok(())
-        }
-
-        pub fn inner_set_winners(
-            &mut self,
-            raffle_id: RaffleId,
-            numbers: Vec<Number>,
+            draw_number: DrawNumber,
+            //config: Config,
+            //numbers: Vec<Number>,
             winners: Vec<AccountId>,
         ) -> Result<(), ContractError> {
-            // check if the winners were selected based on the correct numbers
-            Raffle::ensure_same_results(self, raffle_id, &numbers)?;
+            // check if the config used to select the number is correct
+            //RaffleConfig::ensure_same_config(self, &config)?;
 
-            // set the winners in the raffle
-            Raffle::set_winners(self, raffle_id, winners.clone())?;
+            // check if the numbers are correct
+            //RaffleConfig::check_numbers(self, &numbers)?;
+
+            // set the result
+            Raffle::set_results(self, draw_number, winners.clone())?;
 
             // emmit the event
-            self.env().emit_event(WinnersRevealed {
-                raffle_id,
+            let contract_id = Self::env().account_id();
+            self.env().emit_event(ResultReceived {
+                contract_id,
+                draw_number,
+                //numbers: numbers.clone(),
                 winners: winners.clone(),
             });
-
-            // set the winners in the reward manager
-            if !winners.is_empty() {
-                RewardManager::add_winners(self, winners)?;
-            } else {
-                // start automatically the new raffle if there is no winner
-                self.inner_start_raffle()?;
-            }
 
             Ok(())
         }
@@ -395,31 +322,33 @@ pub mod lotto_contract {
 
     impl rollup_anchor::MessageHandler for Contract {
         fn on_message_received(&mut self, action: Vec<u8>) -> Result<(), RollupAnchorError> {
+
+            /*
+            pub enum RequestForAction {
+                SetConfig(Config),
+                OpenRegistrations(DrawNumber),
+                CloseRegistrations(DrawNumber),
+                SetResults(DrawNumber, Vec<AccountId>),
+            }
+
+             */
+
             // parse the response
-            let message: LottoResponseMessage = scale::Decode::decode(&mut &action[..])
+            let request: RequestForAction = scale::Decode::decode(&mut &action[..])
                 .or(Err(RollupAnchorError::FailedToDecode))?;
 
-            let raffle_id = message.request.raffle_id;
-
-            match message.response {
-                Response::Numbers(numbers) => {
-                    let config = match message.request.request {
-                        Request::DrawNumbers(nb_numbers, min_number, max_number) => Config {
-                            nb_numbers,
-                            min_number,
-                            max_number,
-                        },
-                        _ => return Err(RollupAnchorError::UnsupportedAction),
-                    };
-                    self.inner_set_results(raffle_id, config, numbers)
-                        .or(Err(RollupAnchorError::UnsupportedAction))?
+            match request {
+                RequestForAction::SetConfig(config) => {
+                    self.inner_set_config(config)?;
                 }
-                Response::Winners(winners) => {
-                    let numbers = match message.request.request {
-                        Request::CheckWinners(numbers) => numbers,
-                        _ => return Err(RollupAnchorError::UnsupportedAction),
-                    };
-                    self.inner_set_winners(raffle_id, numbers, winners)
+                RequestForAction::OpenRegistrations(draw_number) => {
+                    self.inner_open_registrations(draw_number)?;
+                }
+                RequestForAction::CloseRegistrations(draw_number) => {
+                    self.inner_close_registrations(draw_number)?;
+                }
+                RequestForAction::SetResults(draw_number, winners) => {
+                    self.inner_set_results(draw_number, winners)
                         .or(Err(RollupAnchorError::UnsupportedAction))?
                 }
             }
@@ -455,16 +384,6 @@ pub mod lotto_contract {
     impl meta_transaction::EventBroadcaster for Contract {
         fn emit_event_meta_tx_decoded(&self) {
             // do nothing
-        }
-    }
-
-    impl reward::Internal for Contract {
-        fn emit_pending_reward_event(&self, account: AccountId, amount: Balance) {
-            self.env().emit_event(PendingReward { account, amount });
-        }
-
-        fn emit_rewards_claimed_event(&self, account: AccountId, amount: Balance) {
-            self.env().emit_event(RewardsClaimed { account, amount });
         }
     }
 }
