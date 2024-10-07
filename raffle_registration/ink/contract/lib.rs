@@ -6,8 +6,7 @@ pub mod lotto_contract {
     use ink::codegen::{EmitEvent, Env};
     use ink::prelude::vec::Vec;
     use lotto_registration::{
-        config, config::*, error::*, raffle, raffle::*, Number, DrawNumber,
-        LOTTO_MANAGER_ROLE,
+        config, config::*, error::*, raffle, raffle::*, Number, DrawNumber
     };
     use openbrush::contracts::access_control::*;
     use openbrush::contracts::ownable::*;
@@ -16,6 +15,17 @@ pub mod lotto_contract {
         meta_transaction, meta_transaction::*, rollup_anchor, rollup_anchor::*,
     };
     use scale::Encode;
+
+    const LOTTO_MANAGER_ROLE: RoleType = ink::selector_id!("LOTTO_MANAGER");
+
+
+    /// Event emitted when the config is received
+    #[ink(event)]
+    pub struct ConfigReceived {
+        #[ink(topic)]
+        contract_id: AccountId,
+        config: Config,
+    }
 
     /// Event emitted when the participation is registered
     #[ink(event)]
@@ -47,32 +57,16 @@ pub mod lotto_contract {
         draw_number: DrawNumber,
     }
 
-    /// Event emitted when the raffle result is received
+    /// Event emitted when the results are received
     #[ink(event)]
-    pub struct ResultReceived {
+    pub struct ResultsReceived {
         #[ink(topic)]
         contract_id: AccountId,
         #[ink(topic)]
         draw_number: DrawNumber,
+        numbers: Vec<Number>,
         winners: Vec<AccountId>,
     }
-/*
-    /// Event emitted when a reward is pending
-    #[ink(event)]
-    pub struct PendingReward {
-        #[ink(topic)]
-        account: AccountId,
-        amount: Balance,
-    }
-
-    /// Event emitted when a user claim rewards
-    #[ink(event)]
-    pub struct RewardsClaimed {
-        #[ink(topic)]
-        account: AccountId,
-        amount: Balance,
-    }
- */
 
     /// Errors occurred in the contract
     #[derive(Debug, Eq, PartialEq, scale::Encode, scale::Decode)]
@@ -126,7 +120,7 @@ pub mod lotto_contract {
         SetConfig(Config),
         OpenRegistrations(DrawNumber),
         CloseRegistrations(DrawNumber),
-        SetResults(DrawNumber, Vec<AccountId>),
+        SetResults(DrawNumber, Vec<Number>, Vec<AccountId>),
     }
 
     /// Contract storage
@@ -258,25 +252,22 @@ pub mod lotto_contract {
         fn inner_set_results(
             &mut self,
             draw_number: DrawNumber,
-            //config: Config,
-            //numbers: Vec<Number>,
+            numbers: Vec<Number>,
             winners: Vec<AccountId>,
         ) -> Result<(), ContractError> {
-            // check if the config used to select the number is correct
-            //RaffleConfig::ensure_same_config(self, &config)?;
 
-            // check if the numbers are correct
-            //RaffleConfig::check_numbers(self, &numbers)?;
+            // check if the numbers satisfies the config
+            RaffleConfig::check_numbers(self, &numbers)?;
 
-            // set the result
+            // save the results
             Raffle::set_results(self, draw_number, winners.clone())?;
 
-            // emmit the event
             let contract_id = Self::env().account_id();
-            self.env().emit_event(ResultReceived {
+            // emmit the event
+            self.env().emit_event(ResultsReceived {
                 contract_id,
                 draw_number,
-                //numbers: numbers.clone(),
+                numbers: numbers.clone(),
                 winners: winners.clone(),
             });
 
@@ -347,9 +338,8 @@ pub mod lotto_contract {
                 RequestForAction::CloseRegistrations(draw_number) => {
                     self.inner_close_registrations(draw_number)?;
                 }
-                RequestForAction::SetResults(draw_number, winners) => {
-                    self.inner_set_results(draw_number, winners)
-                        .or(Err(RollupAnchorError::UnsupportedAction))?
+                RequestForAction::SetResults(draw_number, numbers, winners) => {
+                    self.inner_set_results(draw_number, numbers, winners)?
                 }
             }
 
@@ -357,33 +347,18 @@ pub mod lotto_contract {
         }
     }
 
-    /// Event emitted when a message is pushed in the queue
-    #[ink(event)]
-    pub struct MessageQueued {
-        #[ink(topic)]
-        id: u32,
-        data: Vec<u8>,
-    }
-
-    /// Event emitted when a message is processed
-    #[ink(event)]
-    pub struct MessageProcessedTo {
-        #[ink(topic)]
-        id: u32,
-    }
-
     impl rollup_anchor::EventBroadcaster for Contract {
         fn emit_event_message_queued(&self, id: u32, data: Vec<u8>) {
-            self.env().emit_event(MessageQueued { id, data });
+            // nothing because the message queue is not used in this contract
         }
         fn emit_event_message_processed_to(&self, id: u32) {
-            self.env().emit_event(MessageProcessedTo { id });
+            // nothing because an event is already emitted in the different methods
         }
     }
 
     impl meta_transaction::EventBroadcaster for Contract {
         fn emit_event_meta_tx_decoded(&self) {
-            // do nothing
+            // do nothing, we don't care
         }
     }
 }
