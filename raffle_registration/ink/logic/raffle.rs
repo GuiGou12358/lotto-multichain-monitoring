@@ -20,18 +20,15 @@ pub struct Data {
 pub enum Status {
     #[default]
     NotStarted,
-    Ongoing, // TODO rename with RegistrationOpen
+    Ongoing,        // TODO rename with RegistrationOpen
     WaitingResults, // TODO rename RegistrationClosed
-    Closed,  // TODO rename ResultReceived in the manager
+    Closed,         // TODO rename ResultReceived in the manager
 }
 
 #[openbrush::trait_definition]
 pub trait Raffle: Storage<Data> {
     /// Open the registrations
-    fn open_registrations(
-        &mut self,
-        draw_number: DrawNumber,
-    ) -> Result<(), RaffleError> {
+    fn open_registrations(&mut self, draw_number: DrawNumber) -> Result<(), RaffleError> {
         // check the status
         if self.data::<Data>().status != Status::NotStarted
             && self.data::<Data>().status != Status::Closed
@@ -46,10 +43,7 @@ pub trait Raffle: Storage<Data> {
     }
 
     /// Close the registrations
-    fn close_registrations(
-        &mut self,
-        draw_number: DrawNumber,
-    ) -> Result<(), RaffleError> {
+    fn close_registrations(&mut self, draw_number: DrawNumber) -> Result<(), RaffleError> {
         // check the status
         if self.data::<Data>().status != Status::Ongoing {
             return Err(IncorrectStatus);
@@ -83,7 +77,7 @@ pub trait Raffle: Storage<Data> {
             None => {
                 // save the result
                 self.data::<Data>().winners.insert(draw_number, &winners); // TODO check if we need it
-                // update the status
+                                                                           // update the status
                 self.data::<Data>().status = Status::Closed;
                 Ok(())
             }

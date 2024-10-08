@@ -4,9 +4,7 @@
 #[openbrush::contract]
 pub mod lotto_contract {
     use ink::prelude::vec::Vec;
-    use lotto_registration::{
-        config, config::*, error::*, raffle, raffle::*, Number, DrawNumber
-    };
+    use lotto_registration::{config, config::*, error::*, raffle, raffle::*, DrawNumber, Number};
     use openbrush::contracts::access_control::*;
     use openbrush::contracts::ownable::*;
     use openbrush::{modifiers, traits::Storage};
@@ -15,7 +13,6 @@ pub mod lotto_contract {
     };
 
     const LOTTO_MANAGER_ROLE: RoleType = ink::selector_id!("LOTTO_MANAGER");
-
 
     /// Event emitted when the config is received
     #[ink(event)]
@@ -212,7 +209,10 @@ pub mod lotto_contract {
 
             // emit the event
             let contract_id = Self::env().account_id();
-            self.env().emit_event(ConfigUpdated { contract_id, config });
+            self.env().emit_event(ConfigUpdated {
+                contract_id,
+                config,
+            });
 
             Ok(())
         }
@@ -223,30 +223,45 @@ pub mod lotto_contract {
             self.inner_open_registrations(draw_number)
         }
 
-        fn inner_open_registrations(&mut self, draw_number: DrawNumber) -> Result<(), ContractError> {
+        fn inner_open_registrations(
+            &mut self,
+            draw_number: DrawNumber,
+        ) -> Result<(), ContractError> {
             // Open the registrations
             Raffle::open_registrations(self, draw_number)?;
 
             // emit the event
             let contract_id = Self::env().account_id();
-            self.env().emit_event(RegistrationsOpen { contract_id, draw_number });
+            self.env().emit_event(RegistrationsOpen {
+                contract_id,
+                draw_number,
+            });
 
             Ok(())
         }
 
         #[ink(message)]
         #[openbrush::modifiers(access_control::only_role(LOTTO_MANAGER_ROLE))]
-        pub fn close_registrations(&mut self, draw_number: DrawNumber) -> Result<(), ContractError> {
+        pub fn close_registrations(
+            &mut self,
+            draw_number: DrawNumber,
+        ) -> Result<(), ContractError> {
             self.inner_close_registrations(draw_number)
         }
 
-        fn inner_close_registrations(&mut self, draw_number: DrawNumber) -> Result<(), ContractError> {
+        fn inner_close_registrations(
+            &mut self,
+            draw_number: DrawNumber,
+        ) -> Result<(), ContractError> {
             // Close the registrations
             Raffle::close_registrations(self, draw_number)?;
 
             // emit the event
             let contract_id = Self::env().account_id();
-            self.env().emit_event(RegistrationsClosed { contract_id, draw_number });
+            self.env().emit_event(RegistrationsClosed {
+                contract_id,
+                draw_number,
+            });
 
             Ok(())
         }
@@ -257,7 +272,6 @@ pub mod lotto_contract {
             numbers: Vec<Number>,
             winners: Vec<AccountId>,
         ) -> Result<(), ContractError> {
-
             // check if the numbers satisfies the config
             RaffleConfig::check_numbers(self, &numbers)?;
 
@@ -315,7 +329,6 @@ pub mod lotto_contract {
 
     impl rollup_anchor::MessageHandler for Contract {
         fn on_message_received(&mut self, action: Vec<u8>) -> Result<(), RollupAnchorError> {
-
             // parse the response
             let request: RequestForAction = scale::Decode::decode(&mut &action[..])
                 .or(Err(RollupAnchorError::FailedToDecode))?;

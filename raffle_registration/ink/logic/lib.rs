@@ -6,4 +6,3 @@ pub type Number = u16;
 pub mod config;
 pub mod error;
 pub mod raffle;
-
