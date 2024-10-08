@@ -1,5 +1,5 @@
-use crate::traits::error::{RaffleError, RaffleError::*};
-use crate::traits::{Number, RaffleId};
+use crate::error::{RaffleError, RaffleError::*};
+use crate::{Number, RaffleId};
 use ink::prelude::vec::Vec;
 use ink::storage::Mapping;
 use openbrush::traits::{AccountId, Storage};

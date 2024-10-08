@@ -2,10 +2,10 @@
 
 #[openbrush::implementation(Ownable, AccessControl, Upgradeable)]
 #[openbrush::contract]
-pub mod lotto_contract {
+pub mod lotto_registration_manager_contract {
     use ink::codegen::{EmitEvent, Env};
     use ink::prelude::vec::Vec;
-    use lotto::traits::{
+    use lotto_registration_manager::{
         config, config::*, error::*, raffle, raffle::*, reward, reward::*, Number, RaffleId,
         LOTTO_MANAGER_ROLE,
     };
