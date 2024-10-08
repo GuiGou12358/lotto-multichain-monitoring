@@ -3,7 +3,6 @@
 #[openbrush::implementation(Ownable, AccessControl, Upgradeable)]
 #[openbrush::contract]
 pub mod lotto_contract {
-    use ink::codegen::{EmitEvent, Env};
     use ink::prelude::vec::Vec;
     use lotto_registration::{
         config, config::*, error::*, raffle, raffle::*, Number, DrawNumber
@@ -14,14 +13,13 @@ pub mod lotto_contract {
     use phat_rollup_anchor_ink::traits::{
         meta_transaction, meta_transaction::*, rollup_anchor, rollup_anchor::*,
     };
-    use scale::Encode;
 
     const LOTTO_MANAGER_ROLE: RoleType = ink::selector_id!("LOTTO_MANAGER");
 
 
     /// Event emitted when the config is received
     #[ink(event)]
-    pub struct ConfigReceived {
+    pub struct ConfigUpdated {
         #[ink(topic)]
         contract_id: AccountId,
         config: Config,
@@ -212,6 +210,10 @@ pub mod lotto_contract {
             // update the config
             RaffleConfig::set_config(self, config)?;
 
+            // emit the event
+            let contract_id = Self::env().account_id();
+            self.env().emit_event(ConfigUpdated { contract_id, config });
+
             Ok(())
         }
 
@@ -262,8 +264,8 @@ pub mod lotto_contract {
             // save the results
             Raffle::set_results(self, draw_number, winners.clone())?;
 
-            let contract_id = Self::env().account_id();
             // emmit the event
+            let contract_id = Self::env().account_id();
             self.env().emit_event(ResultsReceived {
                 contract_id,
                 draw_number,
@@ -314,16 +316,6 @@ pub mod lotto_contract {
     impl rollup_anchor::MessageHandler for Contract {
         fn on_message_received(&mut self, action: Vec<u8>) -> Result<(), RollupAnchorError> {
 
-            /*
-            pub enum RequestForAction {
-                SetConfig(Config),
-                OpenRegistrations(DrawNumber),
-                CloseRegistrations(DrawNumber),
-                SetResults(DrawNumber, Vec<AccountId>),
-            }
-
-             */
-
             // parse the response
             let request: RequestForAction = scale::Decode::decode(&mut &action[..])
                 .or(Err(RollupAnchorError::FailedToDecode))?;
@@ -348,10 +340,10 @@ pub mod lotto_contract {
     }
 
     impl rollup_anchor::EventBroadcaster for Contract {
-        fn emit_event_message_queued(&self, id: u32, data: Vec<u8>) {
+        fn emit_event_message_queued(&self, _id: u32, _data: Vec<u8>) {
             // nothing because the message queue is not used in this contract
         }
-        fn emit_event_message_processed_to(&self, id: u32) {
+        fn emit_event_message_processed_to(&self, _id: u32) {
             // nothing because an event is already emitted in the different methods
         }
     }
