@@ -32,7 +32,7 @@ pub enum Status {
 }
 
 #[openbrush::trait_definition]
-pub trait Raffle: Storage<Data> {
+pub trait RaffleManager: Storage<Data> {
     /// Open the registrations
     fn add_registration_contract(&mut self, registration_contract: RegistrationContractId) -> Result<(), RaffleError> {
         // check the status

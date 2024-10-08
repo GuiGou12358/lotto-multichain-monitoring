@@ -6,8 +6,7 @@ pub mod lotto_registration_manager_contract {
     use ink::codegen::{EmitEvent, Env};
     use ink::prelude::vec::Vec;
     use lotto_registration_manager::{
-        config, config::*, error::*, raffle, raffle::*, DrawNumber, Number, RegistrationContractId,
-        LOTTO_MANAGER_ROLE,
+        config, config::*, error::*, raffle_manager, raffle_manager::*, DrawNumber, Number, RegistrationContractId
     };
     use openbrush::contracts::access_control::*;
     use openbrush::contracts::ownable::*;
@@ -15,6 +14,8 @@ pub mod lotto_registration_manager_contract {
     use phat_rollup_anchor_ink::traits::{
         meta_transaction, meta_transaction::*, rollup_anchor, rollup_anchor::*,
     };
+
+    const LOTTO_MANAGER_ROLE: RoleType = ink::selector_id!("LOTTO_MANAGER");
 
     /// Event emitted when the lotto is started
     #[ink(event)]
@@ -169,11 +170,11 @@ pub mod lotto_registration_manager_contract {
         #[storage_field]
         config: config::Data,
         #[storage_field]
-        lotto: raffle::Data,
+        raffle_manager: raffle_manager::Data,
     }
 
     impl RaffleConfig for Contract {}
-    impl Raffle for Contract {}
+    impl RaffleManager for Contract {}
 
     impl RollupAnchor for Contract {}
     impl MetaTransaction for Contract {}
@@ -197,7 +198,7 @@ pub mod lotto_registration_manager_contract {
         #[openbrush::modifiers(access_control::only_role(LOTTO_MANAGER_ROLE))]
         pub fn set_config(&mut self, config: Config) -> Result<(), ContractError> {
             // check the status, we can set the config only when the raffle is not started yet
-            let status = Raffle::get_status(self);
+            let status = RaffleManager::get_status(self);
             if status != Status::NotStarted {
                 return Err(ContractError::RaffleError(RaffleError::IncorrectStatus));
             }
@@ -212,14 +213,14 @@ pub mod lotto_registration_manager_contract {
         #[openbrush::modifiers(access_control::only_role(LOTTO_MANAGER_ROLE))]
         pub fn start(&mut self) -> Result<(), ContractError> {
             // start
-            Raffle::start(self)?;
+            RaffleManager::start(self)?;
             // propagate the config in all given contracts
             let config = RaffleConfig::ensure_config(self)?;
 
             // emmit the event
             self.env().emit_event(LottoStarted { config });
 
-            let registration_contracts = Raffle::get_registration_contracts(self);
+            let registration_contracts = RaffleManager::get_registration_contracts(self);
             let message =
                 LottoManagerRequestMessage::PropagateConfig(config, registration_contracts);
             RollupAnchor::push_message(self, &message)?;
@@ -231,7 +232,7 @@ pub mod lotto_registration_manager_contract {
             &mut self,
             registration_contracts: Vec<RegistrationContractId>,
         ) -> Result<(), ContractError> {
-            let not_synchronized_contracts = Raffle::save_registrations_status(
+            let not_synchronized_contracts = RaffleManager::save_registrations_status(
                 self,
                 1,
                 Status::Started,
@@ -255,13 +256,13 @@ pub mod lotto_registration_manager_contract {
 
         fn inner_open_registrations(&mut self) -> Result<(), ContractError> {
             // open the registrations in the manager
-            let draw_number = Raffle::open_registrations(self)?;
+            let draw_number = RaffleManager::open_registrations(self)?;
 
             // emmit the event
             self.env().emit_event(RegistrationOpen { draw_number });
 
             // open the registrations in all given contracts
-            let registration_contracts = Raffle::get_registration_contracts(self);
+            let registration_contracts = RaffleManager::get_registration_contracts(self);
             let message =
                 LottoManagerRequestMessage::OpenRegistrations(draw_number, registration_contracts);
             RollupAnchor::push_message(self, &message)?;
@@ -274,7 +275,7 @@ pub mod lotto_registration_manager_contract {
             draw_number: DrawNumber,
             registration_contracts: Vec<RegistrationContractId>,
         ) -> Result<(), ContractError> {
-            let not_synchronized_contracts = Raffle::save_registrations_status(
+            let not_synchronized_contracts = RaffleManager::save_registrations_status(
                 self,
                 draw_number,
                 Status::RegistrationsOpen,
@@ -293,7 +294,7 @@ pub mod lotto_registration_manager_contract {
 
             // all contracts are synchronized
             // TODO we can close the registration in X block
-            //Raffle::open_registrations_completed(self)?;
+            //RaffleManager::open_registrations_completed(self)?;
 
             Ok(())
         }
@@ -301,13 +302,13 @@ pub mod lotto_registration_manager_contract {
         #[ink(message)]
         pub fn close_registrations(&mut self) -> Result<(), ContractError> {
             // close the registrations in the manager
-            let draw_number = Raffle::close_registrations(self)?;
+            let draw_number = RaffleManager::close_registrations(self)?;
 
             // emmit the event
             self.env().emit_event(RegistrationClosed { draw_number });
 
             // close the registrations in all contracts
-            let registration_contracts = Raffle::get_registration_contracts(self);
+            let registration_contracts = RaffleManager::get_registration_contracts(self);
             let message =
                 LottoManagerRequestMessage::CloseRegistrations(draw_number, registration_contracts);
             RollupAnchor::push_message(self, &message)?;
@@ -320,7 +321,7 @@ pub mod lotto_registration_manager_contract {
             draw_number: DrawNumber,
             registration_contracts: Vec<RegistrationContractId>,
         ) -> Result<(), ContractError> {
-            let not_synchronized_contracts = Raffle::save_registrations_status(
+            let not_synchronized_contracts = RaffleManager::save_registrations_status(
                 self,
                 draw_number,
                 Status::RegistrationsClosed,
@@ -364,7 +365,7 @@ pub mod lotto_registration_manager_contract {
             RaffleConfig::check_numbers(self, &numbers)?;
 
             // set the result
-            Raffle::set_results(self, draw_number, numbers.clone())?;
+            RaffleManager::set_results(self, draw_number, numbers.clone())?;
 
             // emmit the event
             self.env().emit_event(ResultReceived {
@@ -386,10 +387,10 @@ pub mod lotto_registration_manager_contract {
             winners: Vec<AccountId>,
         ) -> Result<(), ContractError> {
             // TODO check if the winners were selected based on the correct numbers
-            //Raffle::ensure_same_results(self, raffle_id, &numbers)?;
+            //RaffleManager::ensure_same_results(self, raffle_id, &numbers)?;
 
             // set the winners in the raffle
-            Raffle::set_winners(self, draw_number, winners.clone())?;
+            RaffleManager::set_winners(self, draw_number, winners.clone())?;
 
             // emmit the event
             self.env().emit_event(WinnersRevealed {
@@ -398,8 +399,8 @@ pub mod lotto_registration_manager_contract {
             });
 
             // propagate the results in all contracts
-            let numbers = Raffle::get_results(self, draw_number).ok_or(ContractError::NoResult)?;
-            let registration_contracts = Raffle::get_registration_contracts(self);
+            let numbers = RaffleManager::get_results(self, draw_number).ok_or(ContractError::NoResult)?;
+            let registration_contracts = RaffleManager::get_registration_contracts(self);
             let message =
                 LottoManagerRequestMessage::PropagateResults(draw_number, numbers, winners.clone(), registration_contracts);
             RollupAnchor::push_message(self, &message)?;
@@ -413,18 +414,18 @@ pub mod lotto_registration_manager_contract {
             draw_number: DrawNumber,
             registration_contracts: Vec<RegistrationContractId>,
         ) -> Result<(), ContractError> {
-            let not_synchronized_contracts = Raffle::save_registrations_status(
+            let not_synchronized_contracts = RaffleManager::save_registrations_status(
                 self,
                 draw_number,
                 Status::Closed,
                 registration_contracts,
             )?;
 
-            let winners = Raffle::get_winners(self, draw_number).unwrap_or(Vec::new());
+            let winners = RaffleManager::get_winners(self, draw_number).unwrap_or(Vec::new());
 
             if !not_synchronized_contracts.is_empty() {
                 // synchronized missing contracts and wait
-                let numbers = Raffle::get_results(self, draw_number).ok_or(ContractError::NoResult)?;
+                let numbers = RaffleManager::get_results(self, draw_number).ok_or(ContractError::NoResult)?;
                 let message =
                     LottoManagerRequestMessage::PropagateResults(draw_number, numbers, winners.clone(), not_synchronized_contracts);
                 RollupAnchor::push_message(self, &message)?;
