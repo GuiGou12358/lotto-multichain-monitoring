@@ -12,11 +12,11 @@ mod e2e_tests {
     use scale::Encode;
 
     use lotto_registration_manager::config::Config;
-    use lotto_registration_manager::raffle::raffle_external::Raffle;
+    use lotto_registration_manager::raffle_manager::raffle_external::Raffle;
     use lotto_registration_manager::reward::rewardmanager_external::RewardManager;
     use lotto_registration_manager::Number;
     use lotto_registration_manager::RaffleId;
-    use lotto_registration_manager::raffle::Status;
+    use lotto_registration_manager::raffle_manager::Status;
 
     use lotto_registration_manager_contract::{lotto_registration_manager_contract, *};
 

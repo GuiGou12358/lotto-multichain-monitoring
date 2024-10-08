@@ -11,9 +11,5 @@ pub enum RaffleError {
     DifferentResults,
     ExistingResults,
     ExistingWinners,
-    TransferError,
     AddOverFlow,
-    SubOverFlow,
-    DivByZero,
-    NoReward,
 }

@@ -5,7 +5,7 @@
 pub mod lotto_registration_manager_contract {
     use ink::codegen::{EmitEvent, Env};
     use ink::prelude::vec::Vec;
-    use lotto_registration_manager::{
+    use lotto::{
         config, config::*, error::*, raffle_manager, raffle_manager::*, DrawNumber, Number, RegistrationContractId
     };
     use openbrush::contracts::access_control::*;

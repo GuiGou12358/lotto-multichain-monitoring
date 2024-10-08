@@ -1,7 +1,6 @@
 use crate::error::{RaffleError, RaffleError::*};
 use crate::{DrawNumber, Number};
 use ink::prelude::vec::Vec;
-use ink::storage::Mapping;
 use openbrush::traits::{AccountId, Storage};
 
 #[derive(Default, Debug)]
