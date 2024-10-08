@@ -105,12 +105,6 @@ pub mod lotto_contract {
     /// Message to request for action
     /// Message sent by the offchain rollup to the Ink! smart contract
     #[derive(scale::Encode, scale::Decode)]
-    /*
-    #[cfg_attr(
-        feature = "std",
-        derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
-    )]
-     */
     pub enum RequestForAction {
         SetConfig(Config),
         OpenRegistrations(DrawNumber),
@@ -134,15 +128,10 @@ pub mod lotto_contract {
         config: config::Data,
         #[storage_field]
         lotto: raffle::Data,
-        /*
-        #[storage_field]
-        reward: reward::Data,
-         */
     }
 
     impl RaffleConfig for Contract {}
     impl Raffle for Contract {}
-    //impl RewardManager for Contract {}
 
     impl RollupAnchor for Contract {}
     impl MetaTransaction for Contract {}
