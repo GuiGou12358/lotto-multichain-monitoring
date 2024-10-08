@@ -4,7 +4,7 @@
 #[openbrush::contract]
 pub mod lotto_contract {
     use ink::prelude::vec::Vec;
-    use lotto_registration::{config, config::*, error::*, raffle, raffle::*, DrawNumber, Number};
+    use lotto_registration::{config, config::*, error::*, raffle, raffle::*, DrawNumber, Number, RegistrationContractId};
     use openbrush::contracts::access_control::*;
     use openbrush::contracts::ownable::*;
     use openbrush::{modifiers, traits::Storage};
@@ -18,7 +18,7 @@ pub mod lotto_contract {
     #[ink(event)]
     pub struct ConfigUpdated {
         #[ink(topic)]
-        contract_id: AccountId,
+        registration_contract_id: RegistrationContractId,
         config: Config,
     }
 
@@ -26,7 +26,7 @@ pub mod lotto_contract {
     #[ink(event)]
     pub struct ParticipationRegistered {
         #[ink(topic)]
-        contract_id: AccountId,
+        registration_contract_id: RegistrationContractId,
         #[ink(topic)]
         draw_number: DrawNumber,
         #[ink(topic)]
@@ -38,7 +38,7 @@ pub mod lotto_contract {
     #[ink(event)]
     pub struct RegistrationsOpen {
         #[ink(topic)]
-        contract_id: AccountId,
+        registration_contract_id: RegistrationContractId,
         #[ink(topic)]
         draw_number: DrawNumber,
     }
@@ -47,7 +47,7 @@ pub mod lotto_contract {
     #[ink(event)]
     pub struct RegistrationsClosed {
         #[ink(topic)]
-        contract_id: AccountId,
+        registration_contract_id: RegistrationContractId,
         #[ink(topic)]
         draw_number: DrawNumber,
     }
@@ -56,7 +56,7 @@ pub mod lotto_contract {
     #[ink(event)]
     pub struct ResultsReceived {
         #[ink(topic)]
-        contract_id: AccountId,
+        registration_contract_id: RegistrationContractId,
         #[ink(topic)]
         draw_number: DrawNumber,
         numbers: Vec<Number>,
@@ -94,7 +94,7 @@ pub mod lotto_contract {
         }
     }
 
-    /// convertor from RaffleError to ContractError
+    /// convertor from ContractError to RollupAnchorError
     impl From<ContractError> for RollupAnchorError {
         fn from(error: ContractError) -> Self {
             ink::env::debug_println!("Error: {:?}", error);
@@ -128,6 +128,7 @@ pub mod lotto_contract {
         config: config::Data,
         #[storage_field]
         lotto: raffle::Data,
+        registration_contract_id: RegistrationContractId,
     }
 
     impl RaffleConfig for Contract {}
@@ -156,10 +157,10 @@ pub mod lotto_contract {
             Raffle::can_participate(self)?;
             // save the participation with an event
             let participant = Self::env().caller();
-            let contract_id = Self::env().account_id();
+            let registration_contract_id = self.registration_contract_id;
             let draw_number = Raffle::get_draw_number(self);
             self.env().emit_event(ParticipationRegistered {
-                contract_id,
+                registration_contract_id,
                 draw_number,
                 participant,
                 numbers,
@@ -197,9 +198,9 @@ pub mod lotto_contract {
             RaffleConfig::set_config(self, config)?;
 
             // emit the event
-            let contract_id = Self::env().account_id();
+            let registration_contract_id = self.registration_contract_id;
             self.env().emit_event(ConfigUpdated {
-                contract_id,
+                registration_contract_id,
                 config,
             });
 
@@ -220,9 +221,9 @@ pub mod lotto_contract {
             Raffle::open_registrations(self, draw_number)?;
 
             // emit the event
-            let contract_id = Self::env().account_id();
+            let registration_contract_id = self.registration_contract_id;
             self.env().emit_event(RegistrationsOpen {
-                contract_id,
+                registration_contract_id,
                 draw_number,
             });
 
@@ -246,9 +247,9 @@ pub mod lotto_contract {
             Raffle::close_registrations(self, draw_number)?;
 
             // emit the event
-            let contract_id = Self::env().account_id();
+            let registration_contract_id = self.registration_contract_id;
             self.env().emit_event(RegistrationsClosed {
-                contract_id,
+                registration_contract_id,
                 draw_number,
             });
 
@@ -265,12 +266,12 @@ pub mod lotto_contract {
             RaffleConfig::check_numbers(self, &numbers)?;
 
             // save the results
-            Raffle::set_results(self, draw_number, winners.clone())?;
+            Raffle::save_results(self, draw_number, numbers.clone(), winners.clone())?;
 
             // emmit the event
-            let contract_id = Self::env().account_id();
+            let registration_contract_id = self.registration_contract_id;
             self.env().emit_event(ResultsReceived {
-                contract_id,
+                registration_contract_id,
                 draw_number,
                 numbers: numbers.clone(),
                 winners: winners.clone(),

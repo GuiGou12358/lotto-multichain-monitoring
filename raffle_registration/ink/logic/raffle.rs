@@ -1,5 +1,5 @@
 use crate::error::{RaffleError, RaffleError::*};
-use crate::DrawNumber;
+use crate::{DrawNumber, Number};
 use ink::prelude::vec::Vec;
 use ink::storage::Mapping;
 use openbrush::traits::{AccountId, Storage};
@@ -9,7 +9,6 @@ use openbrush::traits::{AccountId, Storage};
 pub struct Data {
     draw_number: DrawNumber,
     status: Status,
-    winners: Mapping<DrawNumber, Vec<AccountId>>,
 }
 
 #[derive(Default, Debug, Eq, PartialEq, Copy, Clone, scale::Encode, scale::Decode)]
@@ -20,9 +19,10 @@ pub struct Data {
 pub enum Status {
     #[default]
     NotStarted,
-    Ongoing,        // TODO rename with RegistrationOpen
-    WaitingResults, // TODO rename RegistrationClosed
-    Closed,         // TODO rename ResultReceived in the manager
+    Started,
+    RegistrationOpen,
+    RegistrationClosed,
+    ResultsReceived,
 }
 
 #[openbrush::trait_definition]
@@ -30,14 +30,14 @@ pub trait Raffle: Storage<Data> {
     /// Open the registrations
     fn open_registrations(&mut self, draw_number: DrawNumber) -> Result<(), RaffleError> {
         // check the status
-        if self.data::<Data>().status != Status::NotStarted
-            && self.data::<Data>().status != Status::Closed
+        if self.data::<Data>().status != Status::Started
+            && self.data::<Data>().status != Status::ResultsReceived
         {
             return Err(IncorrectStatus);
         }
 
         self.data::<Data>().draw_number = draw_number;
-        self.data::<Data>().status = Status::Ongoing;
+        self.data::<Data>().status = Status::RegistrationOpen;
 
         Ok(())
     }
@@ -45,7 +45,7 @@ pub trait Raffle: Storage<Data> {
     /// Close the registrations
     fn close_registrations(&mut self, draw_number: DrawNumber) -> Result<(), RaffleError> {
         // check the status
-        if self.data::<Data>().status != Status::Ongoing {
+        if self.data::<Data>().status != Status::RegistrationOpen {
             return Err(IncorrectStatus);
         }
         // check the draw number
@@ -53,18 +53,19 @@ pub trait Raffle: Storage<Data> {
             return Err(IncorrectDrawNumber);
         }
         // update the status
-        self.data::<Data>().status = Status::WaitingResults;
+        self.data::<Data>().status = Status::RegistrationClosed;
         Ok(())
     }
 
-    /// save the winners for the draw number.
-    fn set_results(
+    /// save the results for the draw number.
+    fn save_results(
         &mut self,
         draw_number: DrawNumber,
-        winners: Vec<AccountId>,
+        _numbers: Vec<Number>,
+        _winners: Vec<AccountId>,
     ) -> Result<(), RaffleError> {
         // check the status
-        if self.data::<Data>().status != Status::WaitingResults {
+        if self.data::<Data>().status != Status::RegistrationClosed {
             return Err(IncorrectStatus);
         }
         // check the draw number
@@ -72,22 +73,14 @@ pub trait Raffle: Storage<Data> {
             return Err(IncorrectDrawNumber);
         }
 
-        match self.data::<Data>().winners.get(draw_number) {
-            Some(_) => Err(ExistingWinners),
-            None => {
-                // save the result
-                self.data::<Data>().winners.insert(draw_number, &winners); // TODO check if we need it
-                                                                           // update the status
-                self.data::<Data>().status = Status::Closed;
-                Ok(())
-            }
-        }
+        self.data::<Data>().status = Status::ResultsReceived;
+        Ok(())
     }
 
     /// check if the registrations are open
     fn can_participate(&mut self) -> Result<(), RaffleError> {
         // check the status
-        if self.data::<Data>().status != Status::Ongoing {
+        if self.data::<Data>().status != Status::RegistrationOpen {
             return Err(IncorrectStatus);
         }
 
@@ -104,8 +97,4 @@ pub trait Raffle: Storage<Data> {
         self.data::<Data>().status
     }
 
-    #[ink(message)]
-    fn get_winners(&self, draw_number: DrawNumber) -> Option<Vec<AccountId>> {
-        self.data::<Data>().winners.get(draw_number)
-    }
 }
