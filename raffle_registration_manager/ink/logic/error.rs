@@ -4,8 +4,8 @@ use openbrush::contracts::access_control::AccessControlError;
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
 pub enum RaffleError {
     AccessControlError(AccessControlError),
-    IncorrectRaffle,
     IncorrectStatus,
+    IncorrectDrawNumber,
     IncorrectConfig,
     ConfigNotSet,
     DifferentConfig,
