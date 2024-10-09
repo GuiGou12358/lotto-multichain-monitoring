@@ -13,7 +13,6 @@ mod lotto_draw_evm {
     use pink_extension::{debug, error, http_post, info, vrf, ResultExt};
     use pink_web3::keys::pink::KeyPair;
     use pink_kv_session::traits::QueueSession;
-    use pink_kv_session::traits::KvSession;
     use ethabi::{ParamType, Token};
     use sp_core::H160;
     use scale::{Decode, Encode};
@@ -743,7 +742,6 @@ mod lotto_draw_evm {
 
     #[cfg(test)]
     mod tests {
-        use crate::lotto_draw::Request::{CheckWinners, DrawNumbers};
         use super::*;
 
         struct EnvVars {
@@ -1061,7 +1059,7 @@ mod lotto_draw_evm {
             let message = super::decode_message(encoded_message.as_slice()).expect("Error to decode message");
             ink::env::debug_println!("message: {message:?}");
             assert_eq!(2, message.raffle_id);
-            assert_eq!(DrawNumbers(4, 1, 50), message.request);
+            assert_eq!(Request::DrawNumbers(4, 1, 50), message.request);
         }
 
         #[ink::test]
@@ -1070,7 +1068,7 @@ mod lotto_draw_evm {
             let message = super::decode_message(encoded_message.as_slice()).expect("Error to decode message");
             ink::env::debug_println!("message: {message:?}");
             assert_eq!(1, message.raffle_id);
-            assert_eq!(CheckWinners(vec![33, 47, 5, 6]), message.request);
+            assert_eq!(Request::CheckWinners(vec![33, 47, 5, 6]), message.request);
         }
 
         #[ink::test]
