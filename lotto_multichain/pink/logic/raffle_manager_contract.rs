@@ -1,4 +1,8 @@
+extern crate alloc;
+
+use crate::error::RaffleDrawError;
 use crate::types::{AccountId32, DrawNumber, Hash, Number, RaffleConfig, RegistrationContractId};
+use alloc::vec::Vec;
 
 #[derive(scale::Encode, scale::Decode)]
 pub enum RaffleManagerStatus {
@@ -12,7 +16,7 @@ pub enum RaffleManagerStatus {
 }
 
 /// message pushed in the queue by the Raffle Manager contract and read by the offchain rollup
-#[derive(Eq, PartialEq, Clone, scale::Encode, scale::Decode)]
+#[derive(scale::Encode, scale::Decode, Debug)]
 pub enum LottoManagerRequestMessage {
     PropagateConfig(RaffleConfig, Vec<RegistrationContractId>),
     OpenRegistrations(DrawNumber, Vec<RegistrationContractId>),
@@ -67,9 +71,17 @@ pub enum LottoManagerResponseMessage {
     Winners(DrawNumber, Vec<AccountId32>, Hash),
 }
 
-
 pub trait RaffleManagerContract {
-
     fn get_raffle_manager_status(&self) -> Option<RaffleManagerStatus>;
 
+    /*
+    fn get_request(&self) -> Result<Option<LottoManagerRequestMessage>, RaffleDrawError>;
+
+    fn send_response(
+        &mut self,
+        response: LottoManagerResponseMessage,
+        attest_key: &[u8],
+    ) -> Result<Option<Vec<u8>>, RaffleDrawError>;
+
+     */
 }

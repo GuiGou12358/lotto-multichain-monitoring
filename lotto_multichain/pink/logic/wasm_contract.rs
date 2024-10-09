@@ -5,21 +5,20 @@ use crate::types::*;
 //use alloc::boxed::Box;
 use alloc::vec::Vec;
 use phat_offchain_rollup::clients::ink::{Action, InkRollupClient};
+use scale::Encode;
 
 use pink_extension::ResultExt;
 //use pink_web3::keys::pink::KeyPair;
-use scale::{Decode, Encode};
-use crate::raffle_manager_contract::RaffleManagerStatus;
-use crate::raffle_registration_contract::{RaffleRegistrationContract, RaffleRegistrationStatus, RequestForAction};
+use crate::raffle_manager_contract::{
+    LottoManagerRequestMessage, LottoManagerResponseMessage, RaffleManagerContract,
+    RaffleManagerStatus,
+};
+use crate::raffle_registration_contract::{
+    RaffleRegistrationContract, RaffleRegistrationStatus, RequestForAction,
+};
 
 pub struct WasmContract {
     config: WasmContractConfig,
-}
-
-
-pub trait RaffleManagerContract {
-
-    fn get_raffle_manager_status(&self) -> Option<RaffleManagerStatus>;
 }
 
 impl WasmContract {
@@ -29,45 +28,44 @@ impl WasmContract {
     }
 
     /*
-        pub fn set_config(
-            &self,
-            config: RaffleConfig,
-            attest_key: &[u8; 32],
-        ) -> Result<Option<Vec<u8>>, RaffleDrawError> {
-            self.do_action(RequestForAction::SetConfig(config), attest_key)
-        }
+       pub fn set_config(
+           &self,
+           config: RaffleConfig,
+           attest_key: &[u8; 32],
+       ) -> Result<Option<Vec<u8>>, RaffleDrawError> {
+           self.do_action(RequestForAction::SetConfig(config), attest_key)
+       }
 
-        pub fn open_registrations(
-            &self,
-            draw_number: DrawNumber,
-            attest_key: &[u8; 32],
-        ) -> Result<Option<Vec<u8>>, RaffleDrawError> {
-            self.do_action(RequestForAction::OpenRegistrations(draw_number), attest_key)
-        }
+       pub fn open_registrations(
+           &self,
+           draw_number: DrawNumber,
+           attest_key: &[u8; 32],
+       ) -> Result<Option<Vec<u8>>, RaffleDrawError> {
+           self.do_action(RequestForAction::OpenRegistrations(draw_number), attest_key)
+       }
 
-        pub fn close_registrations(
-            &self,
-            draw_number: DrawNumber,
-            attest_key: &[u8; 32],
-        ) -> Result<Option<Vec<u8>>, RaffleDrawError> {
-            self.do_action(RequestForAction::CloseRegistrations(draw_number), attest_key)
-        }
+       pub fn close_registrations(
+           &self,
+           draw_number: DrawNumber,
+           attest_key: &[u8; 32],
+       ) -> Result<Option<Vec<u8>>, RaffleDrawError> {
+           self.do_action(RequestForAction::CloseRegistrations(draw_number), attest_key)
+       }
 
-        pub fn send_results(
-            &self,
-            draw_number: DrawNumber,
-            has_winner: bool,
-            numbers: Vec<Number>,
-            winners: Vec<AccountId32>,
-            attest_key: &[u8; 32],
-        ) -> Result<Option<Vec<u8>>, RaffleDrawError> {
-            self.do_action(
-                RequestForAction::SetResults(draw_number, numbers, winners),
-                attest_key,
-            )
-        }
-     */
-
+       pub fn send_results(
+           &self,
+           draw_number: DrawNumber,
+           has_winner: bool,
+           numbers: Vec<Number>,
+           winners: Vec<AccountId32>,
+           attest_key: &[u8; 32],
+       ) -> Result<Option<Vec<u8>>, RaffleDrawError> {
+           self.do_action(
+               RequestForAction::SetResults(draw_number, numbers, winners),
+               attest_key,
+           )
+       }
+    */
 
     pub fn connect(config: &WasmContractConfig) -> Result<InkRollupClient, RaffleDrawError> {
         let result = InkRollupClient::new(
@@ -117,10 +115,12 @@ impl WasmContract {
 }
 
 impl RaffleRegistrationContract for WasmContract {
+    fn get_status(&self) -> Option<RaffleRegistrationStatus> {
+        // use kv store
+        None // TODO
+    }
 
-    fn get_raffle_registration_status(
-        &self
-    ) -> Option<RaffleRegistrationStatus> {
+    fn get_draw_number(&self) -> Option<DrawNumber> {
         // use kv store
         None // TODO
     }
@@ -137,25 +137,39 @@ impl RaffleRegistrationContract for WasmContract {
         client.action(Action::Reply(scale::Encode::encode(&action)));
 
         // submit the transaction
-        Self::maybe_submit_tx(client, &attest_key, self.config.sender_key.as_ref())
+        Self::maybe_submit_tx(client, attest_key, self.config.sender_key.as_ref())
     }
 }
 
-
 impl RaffleManagerContract for WasmContract {
-
-    fn get_raffle_manager_status(
-        &self
-    ) -> Option<RaffleManagerStatus> {
+    fn get_raffle_manager_status(&self) -> Option<RaffleManagerStatus> {
         // use kv store
         None // TODO
     }
+/*
+    fn get_request(&self) -> Result<Option<LottoManagerRequestMessage>, RaffleDrawError> {
+        self.pop()?
+    }
+
+    fn send_response(
+        &mut self,
+        response: LottoManagerResponseMessage,
+        attest_key: &[u8],
+    ) -> Result<Option<Vec<u8>>, RaffleDrawError> {
+        // Attach an action to the tx by:
+        self.action(Action::Reply(response.encode()));
+
+        Self::maybe_submit_tx(self, attest_key, self.config.sender_key.as_ref())?
+    }
+
+ */
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::raffle_manager_contract::{LottoManagerRequestMessage, LottoManagerResponseMessage};
     use super::*;
+    use crate::raffle_manager_contract::{LottoManagerRequestMessage, LottoManagerResponseMessage};
+    use scale::{Decode, Encode};
 
     #[ink::test]
     fn encode_response_numbers() {

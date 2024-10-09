@@ -7,7 +7,7 @@ use pink_extension::{info, vrf};
 
 #[derive(scale::Encode)]
 struct SaltVrf {
-    raffle_id: RaffleId,
+    draw_number: DrawNumber,
     hashes: Vec<Hash>,
 }
 
@@ -39,11 +39,11 @@ impl Draw {
 
     pub fn verify_numbers(
         &self,
-        raffle_id: RaffleId,
+        draw_number: DrawNumber,
         hashes: Vec<Hash>,
         numbers: Vec<Number>,
     ) -> Result<bool, RaffleDrawError> {
-        let winning_numbers = self.get_numbers(raffle_id, hashes)?;
+        let winning_numbers = self.get_numbers(draw_number, hashes)?;
         if winning_numbers.len() != numbers.len() {
             return Ok(false);
         }
@@ -59,7 +59,7 @@ impl Draw {
 
     pub fn get_numbers(
         &self,
-        raffle_id: RaffleId,
+        draw_number: DrawNumber,
         hashes: Vec<Hash>,
     ) -> Result<Vec<Number>, RaffleDrawError> {
         use ink::env::hash;
@@ -67,7 +67,7 @@ impl Draw {
         let mut numbers = Vec::new();
         let mut i: u8 = 0;
 
-        let salt = SaltVrf { raffle_id, hashes };
+        let salt = SaltVrf { draw_number, hashes };
 
         let encoded_salt = scale::Encode::encode(&salt);
         let mut salt_hash = <hash::Blake2x256 as hash::HashOutput>::Type::default();
@@ -134,13 +134,13 @@ mod tests {
         let nb_numbers = 5;
         let smallest_number = 1;
         let biggest_number = 50;
-        let raffle_id = 1;
+        let draw_number = 1;
         let hashes = vec![];
 
         let draw =
             Draw::new(nb_numbers, smallest_number, biggest_number).expect("Fail to init the draw");
 
-        let result = draw.get_numbers(raffle_id, hashes).unwrap();
+        let result = draw.get_numbers(draw_number, hashes).unwrap();
         assert_eq!(nb_numbers as usize, result.len());
         for &n in result.iter() {
             assert!(n >= smallest_number);
@@ -157,13 +157,13 @@ mod tests {
         let nb_numbers = 5;
         let smallest_number = 1;
         let biggest_number = 5;
-        let raffle_id = 1;
+        let draw_number = 1;
         let hashes = vec![];
 
         let draw =
             Draw::new(nb_numbers, smallest_number, biggest_number).expect("Fail to init the draw");
 
-        let result = draw.get_numbers(raffle_id, hashes).unwrap();
+        let result = draw.get_numbers(draw_number, hashes).unwrap();
         assert_eq!(nb_numbers as usize, result.len());
         for &n in result.iter() {
             assert!(n >= smallest_number);
@@ -206,23 +206,23 @@ mod tests {
         let nb_numbers = 5;
         let smallest_number = 1;
         let biggest_number = 50;
-        let raffle_id = 1;
+        let draw_number = 1;
         let hashes = vec![];
 
         let draw =
             Draw::new(nb_numbers, smallest_number, biggest_number).expect("Fail to init the draw");
 
-        let numbers = draw.get_numbers(raffle_id, hashes.clone()).unwrap();
+        let numbers = draw.get_numbers(draw_number, hashes.clone()).unwrap();
 
         assert_eq!(
             Ok(true),
-            draw.verify_numbers(raffle_id, hashes.clone(), numbers.clone())
+            draw.verify_numbers(draw_number, hashes.clone(), numbers.clone())
         );
 
         // other raffle id
         assert_eq!(
             Ok(false),
-            draw.verify_numbers(raffle_id + 1, hashes, numbers.clone())
+            draw.verify_numbers(draw_number + 1, hashes, numbers.clone())
         );
     }
 }

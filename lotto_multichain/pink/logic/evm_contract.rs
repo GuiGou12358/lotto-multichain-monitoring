@@ -9,17 +9,7 @@ use ethabi::{ParamType, Token};
 use phat_offchain_rollup::{clients::evm::EvmRollupClient, Action};
 use pink_extension::ResultExt;
 use pink_web3::keys::pink::KeyPair;
-
-#[derive(Debug)]
-enum ActionSecondary {
-    /// complete the raffle
-    CompleteRaffle(RaffleId),
-    /// notify the raffle there is a winner or not for the given raffle id
-    /// if the bool is true, it means there is at least one winner in all contracts and the raffles must be stopped
-    /// if the bool is false, it means there is no winner and the raffle must continue
-    /// the list of accounts is the winners who participated with this contract
-    SetWinners(RaffleId, bool, Vec<AccountId20>),
-}
+use crate::raffle_registration_contract::{RaffleRegistrationContract, RaffleRegistrationStatus, RequestForAction};
 
 pub struct EvmContract {
     config: EvmContractConfig,
@@ -30,7 +20,7 @@ impl EvmContract {
         let config = config.ok_or(EvmContractNotConfigured)?;
         Ok(Self { config })
     }
-
+/*
     pub fn complete_raffle(
         &self,
         raffle_id: RaffleId,
@@ -51,22 +41,43 @@ impl EvmContract {
             attest_key,
         )
     }
+ */
 
-    pub fn do_action(
+}
+
+
+impl RaffleRegistrationContract for EvmContract {
+
+    fn get_status(
+        &self
+    ) -> Option<RaffleRegistrationStatus> {
+        // use kv store
+        None // TODO
+    }
+
+    fn get_draw_number(
+        &self
+    ) -> Option<DrawNumber> {
+        // use kv store
+        None // TODO
+    }
+
+    fn do_action(
         &self,
-        action: ActionSecondary,
+        action: RequestForAction,
         attest_key: &[u8; 32],
     ) -> Result<Option<Vec<u8>>, RaffleDrawError> {
         // connect to the contract
         let mut client = connect(&self.config)?;
 
         // Attach an action to the tx:
-        let action = encode_action(&action)?;
+        let action = encode_request(&action)?;
         client.action(Action::Reply(action));
 
         // submit the transaction
-        maybe_submit_tx(client, &attest_key, self.config.sender_key.as_ref())
+        maybe_submit_tx(client, attest_key, self.config.sender_key.as_ref())
     }
+
 }
 
 fn connect(config: &EvmContractConfig) -> Result<EvmRollupClient, RaffleDrawError> {
@@ -84,118 +95,7 @@ fn connect(config: &EvmContractConfig) -> Result<EvmRollupClient, RaffleDrawErro
     }
 }
 
-fn decode_request(raw_data: &[u8]) -> Result<LottoRequestMessage, RaffleDrawError> {
-    ink::env::debug_println!("Received raw request: {raw_data:02x?}");
-
-    /*
-    (uint _raffleId, RequestType _requestType, bytes memory _request, bytes memory _response) = abi.decode(_action, (uint, RequestType, bytes, bytes));
-
-    require(_requestType == RequestType.DRAW_NUMBERS ||  _requestType == RequestType.CHECK_WINNERS, "cannot parse action");
-    if (_requestType == RequestType.DRAW_NUMBERS){
-        (uint8 _nbNumbers, uint _minNumber, uint _maxNumber) = abi.decode(_request, (uint8, uint , uint));
-        (uint[] memory _numbers) = abi.decode(_response, (uint[]));
-        _innerSetResults(_raffleId, _nbNumbers, _minNumber, _maxNumber, _numbers);
-    } else if (_requestType == RequestType.CHECK_WINNERS){
-        (uint[] memory _numbers) = abi.decode(_request, (uint[]));
-        (address[] memory _winners) = abi.decode(_response, (address[]));
-        _innerSetWinners(_raffleId, _numbers, _winners);
-    }
-     */
-
-    // Decode the queue data by ethabi (uint, uint8, bytes)
-    let Ok(decoded) = ethabi::decode(
-        &[ParamType::Uint(32), ParamType::Uint(32)],
-        &raw_data[0..64],
-    ) else {
-        return Err(FailedToDecodeRequest);
-    };
-
-    let [Token::Uint(raffle_id), Token::Uint(request_type)] = decoded.as_slice() else {
-        return Err(FailedToDecodeRequest);
-    };
-
-    ink::env::debug_println!(
-        "Received request with raffle_id {raffle_id} and request_type {request_type}"
-    );
-    let raffle_id = raffle_id.as_u32();
-    let request_type = request_type.as_u32();
-
-    if request_type == 0 {
-        // DRAW_NUMBERS
-        ink::env::debug_println!("Draw numbers ...");
-        // Decode by ethabi (uint8, uint , uint)
-        let Ok(request_decoded) = ethabi::decode(
-            &[
-                ParamType::Uint(32),
-                ParamType::Uint(32),
-                ParamType::Uint(32),
-                ParamType::Uint(32),
-                ParamType::Uint(32),
-            ],
-            &raw_data,
-        ) else {
-            return Err(FailedToDecodeRequest);
-        };
-        let [Token::Uint(_), Token::Uint(_), Token::Uint(nb_numbers), Token::Uint(min_number), Token::Uint(max_number)] =
-            request_decoded.as_slice()
-        else {
-            return Err(FailedToDecodeRequest);
-        };
-        ink::env::debug_println!(
-            "Received request to draw {nb_numbers} numbers between {min_number} and {max_number}"
-        );
-
-        let nb_numbers = nb_numbers.as_u32() as u8;
-        let min_number = min_number.as_u128() as Number;
-        let max_number = max_number.as_u128() as Number;
-
-        return Ok(LottoRequestMessage {
-            raffle_id,
-            request: Request::DrawNumbers(nb_numbers, min_number, max_number),
-        });
-    }
-    if request_type == 1 {
-        // CHECK_WINNERS
-        ink::env::debug_println!("Check winners ...");
-        // Decode by ethabi (uint[])
-        let Ok(request_decoded) = ethabi::decode(
-            &[
-                ParamType::Uint(32),
-                ParamType::Uint(32),
-                ParamType::Array(Box::new(ParamType::Uint(32))),
-            ],
-            &raw_data,
-        ) else {
-            return Err(FailedToDecodeRequest);
-        };
-        let [Token::Uint(_), Token::Uint(_), Token::Array(ref numbers)] =
-            request_decoded.as_slice()
-        else {
-            return Err(FailedToDecodeRequest);
-        };
-        // TODO implement try UINT -> Number
-        let numbers: Vec<Number> = numbers
-            .into_iter()
-            .map(|n: &ethabi::Token| {
-                if let ethabi::Token::Uint(v) = n {
-                    v.as_u128() as Number
-                } else {
-                    0
-                }
-            })
-            .collect();
-
-        ink::env::debug_println!("Received request to check winners for numbers {numbers:?}");
-
-        return Ok(LottoRequestMessage {
-            raffle_id,
-            request: Request::CheckWinners(numbers),
-        });
-    }
-
-    Err(FailedToDecodeRequest)
-}
-
+/*
 fn encode_response(message: &LottoResponseMessage) -> Result<Vec<u8>, RaffleDrawError> {
     ink::env::debug_println!("Response Message: {message:?}");
 
@@ -262,21 +162,50 @@ fn encode_response(message: &LottoResponseMessage) -> Result<Vec<u8>, RaffleDraw
     };
     Ok(encoded)
 }
+ */
 
-fn encode_action(action: &ActionSecondary) -> Result<Vec<u8>, RaffleDrawError> {
-    ink::env::debug_println!("Action Message: {action:?}");
+fn encode_request(request: &RequestForAction) -> Result<Vec<u8>, RaffleDrawError> {
+    ink::env::debug_println!("Action Message: {request:?}");
 
-    const RESPONSE_COMPLETE_RAFFLE: u8 = 0;
+    const REQUEST_SET_CONFIG: u8 = 0;
+    const REQUEST_OPEN_REGISTRATIONS: u8 = 1;
+    const REQUEST_CLOSE_REGISTRATIONS: u8 = 2;
+    const REQUEST_SET_RESULTS: u8 = 3;
 
-    let encoded = match &action {
-        ActionSecondary::CompleteRaffle(raffle_id) => {
-            let raffle_id = *raffle_id as u128;
+    let encoded = match &request {
+        RequestForAction::SetConfig(config) => {
+            let nb_numbers = config.nb_numbers as u128;
+            let min_number = config.min_number as u128;
+            let max_number = config.max_number as u128;
             ethabi::encode(&[
-                Token::Uint(raffle_id.into()),
-                Token::Uint(RESPONSE_COMPLETE_RAFFLE.into()),
+                Token::Uint(REQUEST_SET_CONFIG.into()),
+                Token::Uint(nb_numbers.into()),
+                Token::Uint(min_number.into()),
+                Token::Uint(max_number.into()),
             ])
         }
-        _ => return Err(FailedToEncodeResponse),
+        RequestForAction::CloseRegistrations(draw_number) => {
+            let draw_number = *draw_number as u128;
+            ethabi::encode(&[
+                Token::Uint(REQUEST_CLOSE_REGISTRATIONS.into()),
+                Token::Uint(draw_number.into()),
+            ])
+        }
+        RequestForAction::OpenRegistrations(draw_number) => {
+            let draw_number = *draw_number as u128;
+            ethabi::encode(&[
+                Token::Uint(REQUEST_OPEN_REGISTRATIONS.into()),
+                Token::Uint(draw_number.into()),
+            ])
+        }
+        RequestForAction::SetResults(draw_number, _, _) => {
+            let draw_number = *draw_number as u128;
+            // TODO manage winners and results
+            ethabi::encode(&[
+                Token::Uint(REQUEST_SET_RESULTS.into()),
+                Token::Uint(draw_number.into()),
+            ])
+        }
     };
     Ok(encoded)
 }
@@ -310,10 +239,37 @@ fn maybe_submit_tx(
     Ok(None)
 }
 
+
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::Request::{CheckWinners, DrawNumbers};
+
+
+    #[ink::test]
+    fn encode_response() {
+
+        let nb_numbers : u8= 4;
+        let min_number : Number = 0;
+        let max_number : Number = 50;
+        let config = RaffleConfig { nb_numbers, min_number, max_number };
+
+        let raffle_id = 3;
+        let numbers = vec![43, 50, 2, 15];
+
+        let request = RequestForAction::SetConfig(config);
+
+        let encoded_request=
+            super::encode_request(&request).expect("Failed to encode request");
+        ink::env::debug_println!("EncodedRequest response numbers: {encoded_request:02x?}");
+        /*
+        let expected : Vec<u8> = hex::decode("0000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000003200000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000002b00000000000000000000000000000000000000000000000000000000000000320000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000f").expect("hex decode failed");
+        assert_eq!(expected, encode_request);
+         */
+    }
+
+    /*
 
     #[ink::test]
     fn encode_response() {
@@ -370,6 +326,8 @@ mod tests {
         assert_eq!(CheckWinners(vec![33, 47, 5, 6]), message.request);
     }
 
+     */
+
     #[ink::test]
     fn decode_array() {
         let raw : Vec<u8> = hex::decode("000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000021000000000000000000000000000000000000000000000000000000000000002f00000000000000000000000000000000000000000000000000000000000000050000000000000000000000000000000000000000000000000000000000000006").expect("hex decode failed");
@@ -409,3 +367,4 @@ mod tests {
         assert_eq!(expected, array_encoded);
     }
 }
+

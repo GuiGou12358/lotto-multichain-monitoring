@@ -5,29 +5,35 @@ extern crate core;
 
 #[ink::contract(env = pink_extension::PinkEnvironment)]
 mod lotto_draw_multichain {
+    use alloc::boxed::Box;
+    use alloc::vec;
     use alloc::vec::Vec;
     use ink::prelude::string::String;
     use ink::storage::Mapping;
     use lotto_draw_logic::draw::Draw;
     use lotto_draw_logic::error::RaffleDrawError;
-    use lotto_draw_logic::error::RaffleDrawError::AddOverFlow;
     use lotto_draw_logic::evm_contract::EvmContract;
     use lotto_draw_logic::indexer::Indexer;
+    use lotto_draw_logic::raffle_manager_contract::{
+        LottoManagerRequestMessage, LottoManagerResponseMessage,
+    };
+    use lotto_draw_logic::raffle_registration_contract::{
+        RaffleRegistrationContract, RaffleRegistrationStatus, RequestForAction,
+    };
     use lotto_draw_logic::types::*;
     use lotto_draw_logic::wasm_contract::WasmContract;
     use phat_offchain_rollup::clients::ink::Action;
     use pink_extension::chain_extension::signing;
     use pink_extension::{error, info, ResultExt};
     use scale::{Decode, Encode};
-    use lotto_draw_logic::raffle_manager_contract::{LottoManagerRequestMessage, LottoManagerResponseMessage};
 
     #[ink(storage)]
     pub struct Lotto {
         owner: AccountId,
-        /// config to send the data to the wasm or evm smart contract
-        primary_consumer: Option<WasmContractConfig>,
-        secondary_consumers: Mapping<u8, EvmContractConfig>,
-        secondary_consumers_keys: Vec<u8>,
+        /// config for raffle manager contract
+        raffle_manager: Option<ContractConfig>,
+        /// config for raffle registrations contracts
+        raffle_registrations: Mapping<RegistrationContractId, ContractConfig>,
         /// indexer endpoint
         indexer_url: Option<String>,
         /// Key for signing the rollup tx.
@@ -49,6 +55,10 @@ mod lotto_draw_multichain {
         InvalidContractId,
         CurrentRaffleUnknown,
         UnauthorizedRaffle,
+        UnknownDrawNumber,
+        UnknownRegistrationStatus,
+        MissingRegistrationContract,
+        EvmRaffleManagerNotImplemented,
     }
 
     type Result<T> = core::result::Result<T, ContractError>;
@@ -74,9 +84,8 @@ mod lotto_draw_multichain {
             Self {
                 owner: Self::env().caller(),
                 attest_key: private_key[..32].try_into().expect("Invalid Key Length"),
-                primary_consumer: None,
-                secondary_consumers: Mapping::default(),
-                secondary_consumers_keys: Vec::default(),
+                raffle_manager: None,
+                raffle_registrations: Mapping::default(),
                 indexer_url: None,
             }
         }
@@ -105,34 +114,109 @@ mod lotto_draw_multichain {
 
         /// Gets the sender address used by this rollup (in case of meta-transaction)
         #[ink(message)]
-        pub fn get_primary_sender_address(&self) -> Option<Vec<u8>> {
-            if let Some(Some(sender_key)) = self
-                .primary_consumer
-                .as_ref()
-                .map(|c| c.sender_key.as_ref())
-            {
-                let sender_key = signing::get_public_key(sender_key, signing::SigType::Sr25519);
-                Some(sender_key)
-            } else {
-                None
+        pub fn get_sender_address_raffle_manager(&self) -> Option<Vec<u8>> {
+            match self.raffle_manager.as_ref() {
+                Some(config) => {
+                    let sender_key = match config {
+                        ContractConfig::Wasm(c) => c.sender_key.as_ref(),
+                        ContractConfig::Evm(c) => c.sender_key.as_ref(),
+                    };
+                    sender_key.map(|key| signing::get_public_key(key, signing::SigType::Sr25519))
+                }
+                None => None,
             }
         }
 
         /// Gets the sender address used by this rollup (in case of meta-transaction)
         #[ink(message)]
-        pub fn get_secondary_sender_address(&self, key: u8) -> Option<Vec<u8>> {
-            if let Some(Some(sender_key)) = self.secondary_consumers.get(key).map(|c| c.sender_key)
-            {
-                let sender_key = signing::get_public_key(&sender_key, signing::SigType::Sr25519);
-                Some(sender_key)
-            } else {
-                None
+        pub fn get_sender_address_raffle_registration(
+            &self,
+            contract_id: RegistrationContractId,
+        ) -> Option<Vec<u8>> {
+            match self.raffle_registrations.get(contract_id).as_ref() {
+                Some(config) => {
+                    let sender_key = match config {
+                        ContractConfig::Wasm(c) => c.sender_key.as_ref(),
+                        ContractConfig::Evm(c) => c.sender_key.as_ref(),
+                    };
+                    sender_key.map(|key| signing::get_public_key(key, signing::SigType::Sr25519))
+                }
+                None => None,
             }
         }
 
         /// Gets the config of the target consumer contract
         #[ink(message)]
-        pub fn get_primary_consumer(&self) -> Option<(String, u8, u8, WasmContractId)> {
+        pub fn get_config_raffle_manager(&self) -> Option<ContractConfig> {
+            self.raffle_manager.clone()
+        }
+
+        /// Gets the config of the target consumer contract
+        #[ink(message)]
+        pub fn get_config_raffle_registrations(
+            &self,
+            contract_id: RegistrationContractId,
+        ) -> Option<ContractConfig> {
+            self.raffle_registrations.get(contract_id).clone()
+        }
+
+        /// Configures the target consumer contract (admin only)
+        #[ink(message)]
+        pub fn set_config_raffle_manager(&mut self, config: Option<ContractConfig>) -> Result<()> {
+            self.ensure_owner()?;
+            self.raffle_manager = config;
+            Ok(())
+        }
+
+        #[ink(message)]
+        pub fn set_config_raffle_registrations(
+            &mut self,
+            contract_id: RegistrationContractId,
+            config: Option<ContractConfig>,
+        ) -> Result<()> {
+            self.ensure_owner()?;
+            match config {
+                None => {
+                    self.raffle_registrations.remove(contract_id);
+                }
+                Some(c) => {
+                    self.raffle_registrations.insert(contract_id, &c);
+                }
+            }
+            Ok(())
+        }
+
+        /*
+                /// Gets the sender address used by this rollup (in case of meta-transaction)
+                #[ink(message)]
+                pub fn get_primary_sender_address(&self) -> Option<Vec<u8>> {
+                    if let Some(Some(sender_key)) = self
+                        .primary_consumer
+                        .as_ref()
+                        .map(|c| c.sender_key.as_ref())
+                    {
+                        let sender_key = signing::get_public_key(sender_key, signing::SigType::Sr25519);
+                        Some(sender_key)
+                    } else {
+                        None
+                    }
+                }
+
+                /// Gets the sender address used by this rollup (in case of meta-transaction)
+                #[ink(message)]
+                pub fn get_secondary_sender_address(&self, key: u8) -> Option<Vec<u8>> {
+                    if let Some(Some(sender_key)) = self.secondary_consumers.get(key).map(|c| c.sender_key)
+                    {
+                        let sender_key = signing::get_public_key(&sender_key, signing::SigType::Sr25519);
+                        Some(sender_key)
+                    } else {
+                        None
+                    }
+                }
+
+                 /// Gets the config of the target consumer contract
+        #[ink(message)]
+        pub fn get_config_raffle_manager(&self) -> Option<(String, u8, u8, WasmContractId)> {
             self.primary_consumer
                 .as_ref()
                 .map(|c| (c.rpc.clone(), c.pallet_id, c.call_id, c.contract_id))
@@ -190,11 +274,10 @@ mod lotto_draw_multichain {
                 }
                 Some(c) => {
                     self.secondary_consumers.insert(key, &c);
-                    if self
+                    if !self
                         .secondary_consumers_keys
                         .iter()
-                        .position(|k| *k == key)
-                        .is_none()
+                        .any(|k| *k == key)
                     {
                         self.secondary_consumers_keys.push(key);
                     }
@@ -202,6 +285,8 @@ mod lotto_draw_multichain {
             }
             Ok(())
         }
+
+         */
 
         /// Gets the config to target the indexer
         #[ink(message)]
@@ -229,7 +314,20 @@ mod lotto_draw_multichain {
         #[ink(message)]
         pub fn answer_request(&self) -> Result<Option<Vec<u8>>> {
             let config = self.ensure_client_configured()?;
-            let mut client = WasmContract::connect(config)?;
+            /*
+                        let mut client: Box<dyn RaffleManagerContract> = match config {
+                            ContractConfig::Wasm(config) => {
+                                WasmContract::new(Some(config.clone())).map(Box::new)?
+                            }
+                            ContractConfig::Evm(config) => return Err(ContractError::EvmRaffleManagerNotImplemented),
+                        };
+            */
+            let (mut client, sender_key) = match config {
+                ContractConfig::Wasm(config) => (WasmContract::connect(config)?, config.sender_key),
+                ContractConfig::Evm(_config) => {
+                    return Err(ContractError::EvmRaffleManagerNotImplemented)
+                }
+            };
 
             // Get a request if presents
             let request: LottoManagerRequestMessage = client
@@ -243,49 +341,138 @@ mod lotto_draw_multichain {
             // Attach an action to the tx by:
             client.action(Action::Reply(response.encode()));
 
-            let tx = WasmContract::maybe_submit_tx(
-                client,
-                &self.attest_key,
-                config.sender_key.as_ref(),
-            )?;
+            let tx = WasmContract::maybe_submit_tx(client, &self.attest_key, sender_key.as_ref())?;
             Ok(tx)
         }
 
-        fn handle_request(&self, message: LottoManagerRequestMessage) -> Result<LottoManagerResponseMessage> {
-            let raffle_id = message.raffle_id;
-
-            let response = match message.request {
-                Request::CompleteAllRaffles => {
-                    match self.inner_complete_all_raffles(raffle_id)? {
-                        (true, hashes) => Response::CompletedRaffles(hashes),
-                        (false, _) => Response::WaitingSynchronization,
-                    }
-                    /*
-                    if all_raffles_completed {
-                        Response::CompletedRaffles(hashes)
-                    } else {
-                        Response::WaitingSynchronization
-                    }
-
-                     */
+        fn handle_request(
+            &self,
+            message: LottoManagerRequestMessage,
+        ) -> Result<LottoManagerResponseMessage> {
+            let response = match message {
+                LottoManagerRequestMessage::PropagateConfig(config, ref contract_ids) => {
+                    let synchronized_contracts =
+                        self.inner_do_action(RequestForAction::SetConfig(config), contract_ids)?;
+                    let hash = [0; 32]; // TODO compute hash
+                    LottoManagerResponseMessage::ConfigPropagated(synchronized_contracts, hash)
                 }
-                Request::DrawNumbers(nb_numbers, smallest_number, biggest_number) => self
-                    .inner_get_numbers(raffle_id, nb_numbers, smallest_number, biggest_number)
-                    .map(Response::Numbers)?,
-                Request::CheckWinners(ref numbers) => {
+                LottoManagerRequestMessage::OpenRegistrations(draw_number, ref contract_ids) => {
+                    let synchronized_contracts = self.inner_do_action(
+                        RequestForAction::OpenRegistrations(draw_number),
+                        contract_ids,
+                    )?;
+                    LottoManagerResponseMessage::RegistrationsOpen(
+                        draw_number,
+                        synchronized_contracts,
+                    )
+                }
+                LottoManagerRequestMessage::CloseRegistrations(draw_number, ref contract_ids) => {
+                    let synchronized_contracts = self.inner_do_action(
+                        RequestForAction::CloseRegistrations(draw_number),
+                        contract_ids,
+                    )?;
+                    LottoManagerResponseMessage::RegistrationsClosed(
+                        draw_number,
+                        synchronized_contracts,
+                    )
+                }
+                LottoManagerRequestMessage::DrawNumbers(
+                    draw_number,
+                    nb_numbers,
+                    smallest_number,
+                    biggest_number,
+                ) => {
+                    let numbers = self.inner_get_numbers(
+                        draw_number,
+                        nb_numbers,
+                        smallest_number,
+                        biggest_number,
+                    )?;
+                    let hash = [0; 32]; // TODO compute hash
+                    LottoManagerResponseMessage::WinningNumbers(draw_number, numbers, hash)
+                }
+                LottoManagerRequestMessage::CheckWinners(draw_number, ref numbers) => {
                     let indexer = Indexer::new(self.get_indexer_url())?;
-                    indexer.query_winners(raffle_id, numbers).map(
+                    let winners = indexer.query_winners(draw_number, numbers)?;
+                    /*.map(
                         |(substrate_addresses, evm_addresses)| {
-                            Response::Winners(substrate_addresses, evm_addresses)
+                            LottoManagerResponseMessage::Winners(substrate_addresses, evm_addresses)
                         },
                     )?
+                    */
+                    let hash = [0; 32]; // TODO compute hash
+                                        // TODO manage evm addresses
+                    LottoManagerResponseMessage::Winners(draw_number, winners.0, hash)
+                }
+                LottoManagerRequestMessage::PropagateResults(
+                    draw_number,
+                    ref _numbers,
+                    ref _winners,
+                    ref contract_ids,
+                ) => {
+                    let synchronized_contracts = self.inner_do_action(
+                        RequestForAction::SetResults(draw_number, vec![], vec![]),
+                        contract_ids,
+                    )?;
+                    let hash = [0; 32]; // TODO compute hash
+                    LottoManagerResponseMessage::ResultsPropagated(
+                        draw_number,
+                        synchronized_contracts,
+                        hash,
+                    )
                 }
             };
 
-            Ok(LottoResponseMessage {
-                request: message,
-                response,
-            })
+            Ok(response)
+        }
+
+        fn inner_do_action(
+            &self,
+            request: RequestForAction,
+            contract_ids: &[RegistrationContractId],
+        ) -> Result<Vec<RegistrationContractId>> {
+            let mut synchronized_contracts = Vec::new();
+
+            let (expected_draw_number, expected_status) = match request {
+                RequestForAction::SetConfig(_) => (0, RaffleRegistrationStatus::NotStarted),
+                RequestForAction::OpenRegistrations(draw_number) => {
+                    (draw_number, RaffleRegistrationStatus::RegistrationOpen)
+                }
+                RequestForAction::CloseRegistrations(draw_number) => {
+                    (draw_number, RaffleRegistrationStatus::RegistrationClosed)
+                }
+                RequestForAction::SetResults(draw_number, _, _) => {
+                    (draw_number, RaffleRegistrationStatus::ResultsReceived)
+                }
+            };
+
+            for contract_id in contract_ids {
+                let contract_config = self
+                    .raffle_registrations
+                    .get(contract_id)
+                    .ok_or(ContractError::MissingRegistrationContract)?;
+                let contract: Box<dyn RaffleRegistrationContract> = match contract_config {
+                    ContractConfig::Wasm(config) => {
+                        WasmContract::new(Some(config)).map(Box::new)?
+                    }
+                    ContractConfig::Evm(config) => EvmContract::new(Some(config)).map(Box::new)?,
+                };
+
+                let draw_number = contract
+                    .get_draw_number()
+                    .ok_or(ContractError::UnknownDrawNumber)?;
+                let status = contract
+                    .get_status()
+                    .ok_or(ContractError::UnknownRegistrationStatus)?;
+                if draw_number == expected_draw_number && status == expected_status {
+                    // the contract is already synchronized
+                    synchronized_contracts.push(*contract_id);
+                } else {
+                    // synchronize the contract
+                    contract.do_action(request.clone(), &self.attest_key)?;
+                }
+            }
+            Ok(synchronized_contracts)
         }
 
         /// Verify if the winning numbers for a raffle are valid (only for past raffles)
@@ -293,106 +480,93 @@ mod lotto_draw_multichain {
         #[ink(message)]
         pub fn verify_numbers(
             &self,
-            contract_id: WasmContractId,
-            raffle_id: RaffleId,
+            draw_number: DrawNumber,
             hashes: Vec<lotto_draw_logic::types::Hash>,
             nb_numbers: u8,
             smallest_number: Number,
             biggest_number: Number,
             numbers: Vec<Number>,
         ) -> Result<bool> {
-            let config = self.ensure_client_configured()?;
+            /*
+                       let config = self.ensure_client_configured()?;
 
-            // check if the target contract is correct
-            if contract_id != config.contract_id {
-                return Err(ContractError::InvalidContractId);
-            }
+                       // check if the target contract is correct
+                       if contract_id != config.contract_id {
+                           return Err(ContractError::InvalidContractId);
+                       }
 
-            let mut client = WasmContract::connect(config)?;
+                       let mut client = WasmContract::connect(config)?;
+                       const LAST_RAFFLE_FOR_VERIF: u32 = ink::selector_id!("LAST_RAFFLE_FOR_VERIF");
 
-            const LAST_RAFFLE_FOR_VERIF: u32 = ink::selector_id!("LAST_RAFFLE_FOR_VERIF");
+                       let last_raffle: DrawNumber = client
+                           .get(&LAST_RAFFLE_FOR_VERIF)
+                           .log_err("verify numbers: last raffle unknown")?
+                           .ok_or(ContractError::CurrentRaffleUnknown)?;
 
-            let last_raffle: RaffleId = client
-                .get(&LAST_RAFFLE_FOR_VERIF)
-                .log_err("verify numbers: last raffle unknown")?
-                .ok_or(ContractError::CurrentRaffleUnknown)?;
-
-            // verify the winning numbers only for the past raffles
-            if raffle_id > last_raffle {
-                return Err(ContractError::UnauthorizedRaffle);
-            }
+                       // verify the winning numbers only for the past raffles
+                       if draw_number > last_raffle {
+                           return Err(ContractError::UnauthorizedRaffle);
+                       }
+            */
 
             let draw = Draw::new(nb_numbers, smallest_number, biggest_number)?;
-            let result = draw.verify_numbers(raffle_id, hashes, numbers)?;
+            let result = draw.verify_numbers(draw_number, hashes, numbers)?;
             Ok(result)
         }
 
         fn inner_get_numbers(
             &self,
-            raffle_id: RaffleId,
+            draw_number: DrawNumber,
             nb_numbers: u8,
             smallest_number: Number,
             biggest_number: Number,
         ) -> Result<Vec<Number>> {
             info!(
-                "Request received for raffle {raffle_id} - draw {nb_numbers} numbers between {smallest_number} and {biggest_number}"
+                "Draw number {draw_number} - Request received for draw {nb_numbers} numbers between {smallest_number} and {biggest_number}"
             );
 
             let indexer = Indexer::new(self.get_indexer_url())?;
-            let hashes = indexer.query_hashes(raffle_id)?;
+            let hashes = indexer.query_hashes(draw_number)?;
 
             let draw = Draw::new(nb_numbers, smallest_number, biggest_number)?;
-            let result = draw.get_numbers(raffle_id, hashes)?;
+            let result = draw.get_numbers(draw_number, hashes)?;
             Ok(result)
         }
 
-        fn inner_complete_all_raffles(
-            &self,
-            raffle_id: RaffleId,
-        ) -> Result<(bool, Vec<lotto_draw_logic::types::Hash>)> {
-            info!("Synchronize raffle {raffle_id} - complete all raffles");
+        /*
+               fn inner_complete_all_raffles(
+                   &self,
+                   draw_number: DrawNumber,
+               ) -> Result<(bool, Vec<lotto_draw_logic::types::Hash>)> {
+                   info!("Synchronize raffle {raffle_id} - complete all raffles");
 
-            let indexer = Indexer::new(self.get_indexer_url())?;
-            let hashes = indexer.query_hashes(raffle_id)?;
+                   let indexer = Indexer::new(self.get_indexer_url())?;
+                   let hashes = indexer.query_hashes(draw_number)?;
 
-            let expected_nb_hashes = self
-                .secondary_consumers_keys
-                .len()
-                .checked_add(1)
-                .ok_or(AddOverFlow)?;
-            if hashes.len() == expected_nb_hashes {
-                // we already have all hashes, it means all raffles are completed
-                return Ok((true, hashes));
-            }
+                   let expected_nb_hashes = self
+                       .secondary_consumers_keys
+                       .len()
+                       .checked_add(1)
+                       .ok_or(AddOverFlow)?;
+                   if hashes.len() == expected_nb_hashes {
+                       // we already have all hashes, it means all raffles are completed
+                       return Ok((true, hashes));
+                   }
 
-            for (_i, key) in self.secondary_consumers_keys.iter().enumerate() {
-                // TODO complete the contract raffle only if we don't have the hash
+                   for (_i, key) in self.secondary_consumers_keys.iter().enumerate() {
+                       // TODO complete the contract raffle only if we don't have the hash
 
-                // get the config linked to this contract
-                let config = self.secondary_consumers.get(key);
-                // complete the raffle
-                let contract = EvmContract::new(config)?;
-                contract.complete_raffle(raffle_id, &self.attest_key)?;
-            }
+                       // get the config linked to this contract
+                       let config = self.secondary_consumers.get(key);
+                       // complete the raffle
+                       let contract = EvmContract::new(config)?;
+                       contract.complete_raffle(raffle_id, &self.attest_key)?;
+                   }
 
-            // we have to wait
-            Ok((false, hashes))
-        }
-
-        fn inner_propagate_result_in_all_raffles(&self, raffle_id: RaffleId) -> Result<bool> {
-            info!("Synchronize raffle {raffle_id} - propagate result");
-
-            for (_i, key) in self.secondary_consumers_keys.iter().enumerate() {
-                // get the config linked to this contract
-                let config = self.secondary_consumers.get(key);
-                // encode the reply
-                let contract = EvmContract::new(config)?;
-                // TODO check the winners
-                contract.send_raffle_result(raffle_id, false, Vec::new(), &self.attest_key)?;
-            }
-
-            Ok(true)
-        }
+                   // we have to wait
+                   Ok((false, hashes))
+               }
+        */
 
         /// Returns BadOrigin error if the caller is not the owner
         fn ensure_owner(&self) -> Result<()> {
@@ -404,8 +578,8 @@ mod lotto_draw_multichain {
         }
 
         /// Returns the config reference or raise the error `ClientNotConfigured`
-        fn ensure_client_configured(&self) -> Result<&WasmContractConfig> {
-            self.primary_consumer
+        fn ensure_client_configured(&self) -> Result<&ContractConfig> {
+            self.raffle_manager
                 .as_ref()
                 .ok_or(ContractError::ClientNotConfigured)
         }

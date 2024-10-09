@@ -6,7 +6,7 @@ use crate::types::*;
 use alloc::vec::Vec;
 use ink::prelude::{format, string::String};
 use pink_extension::{debug, http_post, info};
-use scale::{Decode, Encode};
+use scale::{Encode};
 use serde::Deserialize;
 use serde_json_core;
 use sp_core::crypto::Ss58Codec;
@@ -76,11 +76,11 @@ impl Indexer {
 
     pub fn query_winners(
         self,
-        raffle_id: RaffleId,
+        draw_number: DrawNumber,
         numbers: &Vec<Number>,
     ) -> Result<(Vec<AccountId32>, Vec<AccountId20>), RaffleDrawError> {
         info!(
-                "Request received to get the winners for raffle id {raffle_id} and numbers {numbers:?} "
+                "Request received to get the winners for raffle id {draw_number} and numbers {numbers:?} "
             );
 
         if numbers.is_empty() {
@@ -95,7 +95,7 @@ impl Indexer {
         // build the filter
         let mut filter = format!(
             r#"filter:{{and:[{{numRaffle:{{equalTo:\"{}\"}}}}"#,
-            raffle_id
+            draw_number
         );
         for n in numbers {
             let f = format!(r#",{{numbers:{{contains:\"{}\"}}}}"#, n);
@@ -143,8 +143,8 @@ impl Indexer {
         Ok((winners, Vec::new())) // TODO manage AccountId32 and AccountId20
     }
 
-    pub fn query_hashes(self, raffle_id: RaffleId) -> Result<Vec<Hash>, RaffleDrawError> {
-        info!("Query hashes for raffle id {raffle_id}");
+    pub fn query_hashes(self, draw_number: DrawNumber) -> Result<Vec<Hash>, RaffleDrawError> {
+        info!("Query hashes for raffle id {draw_number}");
 
         // build the headers
         let headers = alloc::vec![
@@ -152,7 +152,7 @@ impl Indexer {
             ("Accept".into(), "application/json".into())
         ];
         // build the filter
-        let filter = format!(r#"filter:{{numRaffle:{{equalTo:\"{}\"}}}}"#, raffle_id);
+        let filter = format!(r#"filter:{{numRaffle:{{equalTo:\"{}\"}}}}"#, draw_number);
 
         // build the body
         let body = format!(
