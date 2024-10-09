@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "logic",
+    "contracts/raffle_manager",
+    "contracts/raffle_registration",
+]
