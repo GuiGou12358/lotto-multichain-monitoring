@@ -8,17 +8,18 @@ mod lotto_draw_multichain {
     use alloc::vec::Vec;
     use ink::prelude::string::String;
     use ink::storage::Mapping;
-    use phat_offchain_rollup::clients::ink::{Action};
-    use pink_extension::chain_extension::signing;
-    use pink_extension::{error, info, ResultExt};
-    use scale::{Decode, Encode};
-    use lotto_draw_logic::indexer::Indexer;
+    use lotto_draw_logic::draw::Draw;
     use lotto_draw_logic::error::RaffleDrawError;
     use lotto_draw_logic::error::RaffleDrawError::AddOverFlow;
     use lotto_draw_logic::evm_contract::EvmContract;
-    use lotto_draw_logic::draw::Draw;
+    use lotto_draw_logic::indexer::Indexer;
     use lotto_draw_logic::types::*;
     use lotto_draw_logic::wasm_contract::WasmContract;
+    use phat_offchain_rollup::clients::ink::Action;
+    use pink_extension::chain_extension::signing;
+    use pink_extension::{error, info, ResultExt};
+    use scale::{Decode, Encode};
+    use lotto_draw_logic::raffle_manager_contract::{LottoManagerRequestMessage, LottoManagerResponseMessage};
 
     #[ink(storage)]
     pub struct Lotto {
@@ -105,8 +106,10 @@ mod lotto_draw_multichain {
         /// Gets the sender address used by this rollup (in case of meta-transaction)
         #[ink(message)]
         pub fn get_primary_sender_address(&self) -> Option<Vec<u8>> {
-            if let Some(Some(sender_key)) =
-                self.primary_consumer.as_ref().map(|c| c.sender_key.as_ref())
+            if let Some(Some(sender_key)) = self
+                .primary_consumer
+                .as_ref()
+                .map(|c| c.sender_key.as_ref())
             {
                 let sender_key = signing::get_public_key(sender_key, signing::SigType::Sr25519);
                 Some(sender_key)
@@ -118,8 +121,7 @@ mod lotto_draw_multichain {
         /// Gets the sender address used by this rollup (in case of meta-transaction)
         #[ink(message)]
         pub fn get_secondary_sender_address(&self, key: u8) -> Option<Vec<u8>> {
-            if let Some(Some(sender_key)) =
-                self.secondary_consumers.get(key).map(|c| c.sender_key)
+            if let Some(Some(sender_key)) = self.secondary_consumers.get(key).map(|c| c.sender_key)
             {
                 let sender_key = signing::get_public_key(&sender_key, signing::SigType::Sr25519);
                 Some(sender_key)
@@ -139,7 +141,8 @@ mod lotto_draw_multichain {
         /// Gets the config of the target consumer contract
         #[ink(message)]
         pub fn get_secondary_consumer(&self, key: u8) -> Option<(String, EvmContractId)> {
-            self.secondary_consumers.get(key)
+            self.secondary_consumers
+                .get(key)
                 .map(|c| (c.rpc.clone(), c.contract_id))
         }
 
@@ -169,7 +172,6 @@ mod lotto_draw_multichain {
             Ok(())
         }
 
-
         #[ink(message)]
         pub fn set_secondary_consumer(
             &mut self,
@@ -179,14 +181,21 @@ mod lotto_draw_multichain {
             self.ensure_owner()?;
             match config {
                 None => {
-                    if let Some(index) = self.secondary_consumers_keys.iter().position(|k| *k == key){
+                    if let Some(index) =
+                        self.secondary_consumers_keys.iter().position(|k| *k == key)
+                    {
                         self.secondary_consumers.remove(key);
                         self.secondary_consumers_keys.remove(index);
                     }
                 }
                 Some(c) => {
                     self.secondary_consumers.insert(key, &c);
-                    if self.secondary_consumers_keys.iter().position(|k| *k == key).is_none() {
+                    if self
+                        .secondary_consumers_keys
+                        .iter()
+                        .position(|k| *k == key)
+                        .is_none()
+                    {
                         self.secondary_consumers_keys.push(key);
                     }
                 }
@@ -219,12 +228,11 @@ mod lotto_draw_multichain {
         /// Processes a request by a rollup transaction
         #[ink(message)]
         pub fn answer_request(&self) -> Result<Option<Vec<u8>>> {
-
             let config = self.ensure_client_configured()?;
             let mut client = WasmContract::connect(config)?;
 
             // Get a request if presents
-            let request: LottoRequestMessage = client
+            let request: LottoManagerRequestMessage = client
                 .pop()
                 .log_err("answer_request: failed to read queue")?
                 .ok_or(ContractError::NoRequestInQueue)?;
@@ -235,12 +243,15 @@ mod lotto_draw_multichain {
             // Attach an action to the tx by:
             client.action(Action::Reply(response.encode()));
 
-            let tx = WasmContract::maybe_submit_tx(client, &self.attest_key, config.sender_key.as_ref())?;
+            let tx = WasmContract::maybe_submit_tx(
+                client,
+                &self.attest_key,
+                config.sender_key.as_ref(),
+            )?;
             Ok(tx)
         }
 
-        fn handle_request(&self, message: LottoRequestMessage) -> Result<LottoResponseMessage> {
-
+        fn handle_request(&self, message: LottoManagerRequestMessage) -> Result<LottoManagerResponseMessage> {
             let raffle_id = message.raffle_id;
 
             let response = match message.request {
@@ -248,7 +259,6 @@ mod lotto_draw_multichain {
                     match self.inner_complete_all_raffles(raffle_id)? {
                         (true, hashes) => Response::CompletedRaffles(hashes),
                         (false, _) => Response::WaitingSynchronization,
-
                     }
                     /*
                     if all_raffles_completed {
@@ -258,19 +268,17 @@ mod lotto_draw_multichain {
                     }
 
                      */
-                },
+                }
                 Request::DrawNumbers(nb_numbers, smallest_number, biggest_number) => self
-                    .inner_get_numbers(
-                        raffle_id,
-                        nb_numbers,
-                        smallest_number,
-                        biggest_number,
-                    )
+                    .inner_get_numbers(raffle_id, nb_numbers, smallest_number, biggest_number)
                     .map(Response::Numbers)?,
                 Request::CheckWinners(ref numbers) => {
                     let indexer = Indexer::new(self.get_indexer_url())?;
-                    indexer.query_winners(raffle_id, numbers)
-                        .map(|(substrate_addresses, evm_addresses)| Response::Winners(substrate_addresses, evm_addresses))?
+                    indexer.query_winners(raffle_id, numbers).map(
+                        |(substrate_addresses, evm_addresses)| {
+                            Response::Winners(substrate_addresses, evm_addresses)
+                        },
+                    )?
                 }
             };
 
@@ -326,7 +334,6 @@ mod lotto_draw_multichain {
             smallest_number: Number,
             biggest_number: Number,
         ) -> Result<Vec<Number>> {
-
             info!(
                 "Request received for raffle {raffle_id} - draw {nb_numbers} numbers between {smallest_number} and {biggest_number}"
             );
@@ -343,26 +350,26 @@ mod lotto_draw_multichain {
             &self,
             raffle_id: RaffleId,
         ) -> Result<(bool, Vec<lotto_draw_logic::types::Hash>)> {
-
-            info!(
-                "Synchronize raffle {raffle_id} - complete all raffles"
-            );
+            info!("Synchronize raffle {raffle_id} - complete all raffles");
 
             let indexer = Indexer::new(self.get_indexer_url())?;
             let hashes = indexer.query_hashes(raffle_id)?;
 
-            let expected_nb_hashes = self.secondary_consumers_keys.len().checked_add(1).ok_or(AddOverFlow)?;
+            let expected_nb_hashes = self
+                .secondary_consumers_keys
+                .len()
+                .checked_add(1)
+                .ok_or(AddOverFlow)?;
             if hashes.len() == expected_nb_hashes {
                 // we already have all hashes, it means all raffles are completed
                 return Ok((true, hashes));
             }
 
             for (_i, key) in self.secondary_consumers_keys.iter().enumerate() {
-
                 // TODO complete the contract raffle only if we don't have the hash
 
                 // get the config linked to this contract
-                let config =  self.secondary_consumers.get(key);
+                let config = self.secondary_consumers.get(key);
                 // complete the raffle
                 let contract = EvmContract::new(config)?;
                 contract.complete_raffle(raffle_id, &self.attest_key)?;
@@ -372,17 +379,12 @@ mod lotto_draw_multichain {
             Ok((false, hashes))
         }
 
-        fn inner_propagate_result_in_all_raffles(
-            &self,
-            raffle_id: RaffleId,
-        ) -> Result<bool> {
-            info!(
-                "Synchronize raffle {raffle_id} - propagate result"
-            );
+        fn inner_propagate_result_in_all_raffles(&self, raffle_id: RaffleId) -> Result<bool> {
+            info!("Synchronize raffle {raffle_id} - propagate result");
 
             for (_i, key) in self.secondary_consumers_keys.iter().enumerate() {
                 // get the config linked to this contract
-                let config =  self.secondary_consumers.get(key);
+                let config = self.secondary_consumers.get(key);
                 // encode the reply
                 let contract = EvmContract::new(config)?;
                 // TODO check the winners
@@ -391,7 +393,6 @@ mod lotto_draw_multichain {
 
             Ok(true)
         }
-
 
         /// Returns BadOrigin error if the caller is not the owner
         fn ensure_owner(&self) -> Result<()> {
@@ -409,7 +410,6 @@ mod lotto_draw_multichain {
                 .ok_or(ContractError::ClientNotConfigured)
         }
     }
-
 
     #[cfg(test)]
     mod tests {
@@ -490,6 +490,5 @@ mod lotto_draw_multichain {
             let r = lotto.answer_request().expect("failed to answer request");
             ink::env::debug_println!("answer request: {r:?}");
         }
-
     }
 }

@@ -3,15 +3,14 @@ extern crate alloc;
 use alloc::vec::Vec;
 use ink::prelude::string::String;
 
-pub type LottoId = u8;
-pub type RaffleId = u32;
+pub type RegistrationContractId = u128;
+pub type DrawNumber = u32;
 pub type Number = u16;
 pub type WasmContractId = [u8; 32];
 pub type EvmContractId = [u8; 20];
 pub type AccountId32 = [u8; 32];
 pub type AccountId20 = [u8; 20];
 pub type Hash = [u8; 32];
-
 
 #[derive(scale::Encode, scale::Decode, Debug)]
 #[cfg_attr(
@@ -42,7 +41,7 @@ pub struct EvmContractConfig {
     /// Key for sending out the rollup meta-tx. None to fallback to the wallet based auth.
     pub sender_key: Option<[u8; 32]>,
 }
-
+/*
 /// Message to request the lotto lotto_draw or the list of winners
 /// message pushed in the queue by the Ink! smart contract and read by the offchain rollup
 #[derive(Eq, PartialEq, Clone, Debug, scale::Encode, scale::Decode)]
@@ -99,3 +98,12 @@ pub enum Response {
     /// list of winners
     Winners(Vec<AccountId32>, Vec<AccountId20>), // TODO manage AccountId20
 }
+ */
+
+#[derive(Debug, Eq, PartialEq, Copy, Clone, scale::Encode, scale::Decode)]
+pub struct RaffleConfig {
+    pub nb_numbers: u8,
+    pub min_number: Number,
+    pub max_number: Number,
+}
+

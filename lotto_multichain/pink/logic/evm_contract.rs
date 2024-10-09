@@ -232,7 +232,10 @@ fn encode_response(message: &LottoResponseMessage) -> Result<Vec<u8>, RaffleDraw
                 Token::Bytes(response),
             ])
         }
-        (Request::CheckWinners(ref numbers), Response::Winners(substrate_addresses, evm_addresses)) => {
+        (
+            Request::CheckWinners(ref numbers),
+            Response::Winners(substrate_addresses, evm_addresses),
+        ) => {
             let numbers: Vec<Token> = numbers
                 .into_iter()
                 .map(|n: &Number| Token::Uint((*n).into()))
