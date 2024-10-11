@@ -8,3 +8,6 @@ pub mod config;
 pub mod error;
 pub mod raffle_manager;
 pub mod raffle_registration;
+
+#[cfg(test)]
+mod test_contract;
