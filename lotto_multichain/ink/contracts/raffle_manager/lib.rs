@@ -6,7 +6,8 @@ pub mod lotto_registration_manager_contract {
     use ink::codegen::{EmitEvent, Env};
     use ink::prelude::vec::Vec;
     use lotto::{
-        config, config::*, error::*, raffle_manager, raffle_manager::*, DrawNumber, Number, RegistrationContractId
+        config, config::*, error::*, raffle_manager, raffle_manager::*, DrawNumber, Number,
+        RegistrationContractId,
     };
     use openbrush::contracts::access_control::*;
     use openbrush::contracts::ownable::*;
@@ -399,15 +400,19 @@ pub mod lotto_registration_manager_contract {
             });
 
             // propagate the results in all contracts
-            let numbers = RaffleManager::get_results(self, draw_number).ok_or(ContractError::NoResult)?;
+            let numbers =
+                RaffleManager::get_results(self, draw_number).ok_or(ContractError::NoResult)?;
             let registration_contracts = RaffleManager::get_registration_contracts(self);
-            let message =
-                LottoManagerRequestMessage::PropagateResults(draw_number, numbers, winners.clone(), registration_contracts);
+            let message = LottoManagerRequestMessage::PropagateResults(
+                draw_number,
+                numbers,
+                winners.clone(),
+                registration_contracts,
+            );
             RollupAnchor::push_message(self, &message)?;
 
             Ok(())
         }
-
 
         fn handle_results_propagated(
             &mut self,
@@ -425,9 +430,14 @@ pub mod lotto_registration_manager_contract {
 
             if !not_synchronized_contracts.is_empty() {
                 // synchronized missing contracts and wait
-                let numbers = RaffleManager::get_results(self, draw_number).ok_or(ContractError::NoResult)?;
-                let message =
-                    LottoManagerRequestMessage::PropagateResults(draw_number, numbers, winners.clone(), not_synchronized_contracts);
+                let numbers =
+                    RaffleManager::get_results(self, draw_number).ok_or(ContractError::NoResult)?;
+                let message = LottoManagerRequestMessage::PropagateResults(
+                    draw_number,
+                    numbers,
+                    winners.clone(),
+                    not_synchronized_contracts,
+                );
                 RollupAnchor::push_message(self, &message)?;
                 return Ok(());
             }
@@ -498,9 +508,7 @@ pub mod lotto_registration_manager_contract {
                     draw_number,
                     contract_ids,
                     _hash,
-                ) => {
-                    self.handle_results_propagated(draw_number, contract_ids)?
-                }
+                ) => self.handle_results_propagated(draw_number, contract_ids)?,
                 LottoManagerResponseMessage::WinningNumbers(draw_number, numbers, _hash) => {
                     self.handle_winning_numbers(draw_number, numbers)?
                 }
