@@ -11,8 +11,9 @@ scale-info = { version = "2", default-features = false, features = ["derive"], o
 openbrush = { version = "4.0.0-beta", git = "https://github.com/Brushfam/openbrush-contracts", default-features = false, features = ["ownable", "access_control", "upgradeable"] }
 phat_rollup_anchor_ink = { git = "https://github.com/Phala-Network/phat-offchain-rollup" , default-features = false}
 
-lotto_registration_manager = { path = "../../raffle_registration_manager/ink/logic", default-features = false }
-lotto_registration_manager_contract = { path = "../../raffle_registration_manager/ink/contract", default-features = false, features = ["ink-as-dependency"] }
+lotto = { path = "../logic", default-features = false }
+lotto_registration_manager_contract = { path = "../contracts/raffle_manager", default-features = false, features = ["ink-as-dependency"] }
+lotto_registration_contract = { path = "../contracts/raffle_registration", default-features = false, features = ["ink-as-dependency"] }
 
 [dev-dependencies]
 ink_e2e = { version = "4.3.0" }
@@ -30,8 +31,9 @@ std = [
     "scale-info/std",
     "openbrush/std",
     "phat_rollup_anchor_ink/std",
-    "lotto_registration_manager/std",
+    "lotto/std",
     "lotto_registration_manager_contract/std",
+    "lotto_registration_contract/std",
 ]
 ink-as-dependency = []
 e2e-tests = []

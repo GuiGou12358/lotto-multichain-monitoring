@@ -3,4 +3,5 @@ members = [
     "logic",
     "contracts/raffle_manager",
     "contracts/raffle_registration",
+    "integration_tests",
 ]

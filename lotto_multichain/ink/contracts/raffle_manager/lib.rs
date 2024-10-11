@@ -138,12 +138,6 @@ pub mod lotto_registration_manager_contract {
         /// arg1: draw number
         /// arg2: list of contracts where the registrations are closed
         RegistrationsClosed(DrawNumber, Vec<RegistrationContractId>),
-        ///
-        /// arg1: draw number
-        /// arg2: list of contracts where the results are propagated
-        /// arg3: hash of results
-        ResultsPropagated(DrawNumber, Vec<RegistrationContractId>, Hash),
-
         /// Return the winning numbers
         /// arg1: draw number
         /// arg2: winning numbers
@@ -154,6 +148,11 @@ pub mod lotto_registration_manager_contract {
         /// arg2: winners
         /// arg3: hash of winning numbers
         Winners(DrawNumber, Vec<AccountId>, Hash),
+        ///
+        /// arg1: draw number
+        /// arg2: list of contracts where the results are propagated
+        /// arg3: hash of results
+        ResultsPropagated(DrawNumber, Vec<RegistrationContractId>, Hash),
     }
 
     /// Contract storage
@@ -235,7 +234,7 @@ pub mod lotto_registration_manager_contract {
         ) -> Result<(), ContractError> {
             let not_synchronized_contracts = RaffleManager::save_registration_contracts_status(
                 self,
-                1,
+                RaffleManager::get_draw_number(self),
                 Status::Started,
                 registration_contracts,
             )?;
