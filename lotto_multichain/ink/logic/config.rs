@@ -85,3 +85,157 @@ pub trait RaffleConfig: Storage<Data> {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_contract::lotto_contract::Contract;
+
+    #[ink::test]
+    fn test_bad_config() {
+        let mut contract = Contract::new();
+
+        let result = contract.set_config(Config {
+            nb_numbers: 0,
+            min_number: 1,
+            max_number: 50,
+        });
+        assert_eq!(result, Err(IncorrectConfig));
+
+        let result = contract.set_config(Config {
+            nb_numbers: 0,
+            min_number: 10,
+            max_number: 10,
+        });
+        assert_eq!(result, Err(IncorrectConfig));
+
+        let result = contract.set_config(Config {
+            nb_numbers: 4,
+            min_number: 51,
+            max_number: 50,
+        });
+        assert_eq!(result, Err(IncorrectConfig));
+    }
+
+    #[ink::test]
+    fn test_get_config() {
+        let mut contract = Contract::new();
+
+        let config = contract.get_config();
+        assert_eq!(config, None);
+
+        contract
+            .set_config(Config {
+                nb_numbers: 4,
+                min_number: 1,
+                max_number: 50,
+            })
+            .expect("failed to set the config");
+
+        if let Some(config) = contract.get_config() {
+            assert_eq!(config.nb_numbers, 4);
+            assert_eq!(config.min_number, 1);
+            assert_eq!(config.max_number, 50);
+        } else {
+            panic!("No config found")
+        }
+    }
+
+    #[ink::test]
+    fn test_ensure_config() {
+        let mut contract = Contract::new();
+
+        assert_eq!(contract.ensure_config(), Err(ConfigNotSet));
+
+        contract
+            .set_config(Config {
+                nb_numbers: 4,
+                min_number: 1,
+                max_number: 50,
+            })
+            .expect("failed to set the config");
+
+        let config = contract.ensure_config().expect("failed to set the config");
+        assert_eq!(config.nb_numbers, 4);
+        assert_eq!(config.min_number, 1);
+        assert_eq!(config.max_number, 50);
+    }
+
+    #[ink::test]
+    fn test_ensure_same_config() {
+        let mut contract = Contract::new();
+
+        let config = contract.get_config();
+        assert_eq!(config, None);
+
+        contract
+            .set_config(Config {
+                nb_numbers: 4,
+                min_number: 1,
+                max_number: 50,
+            })
+            .expect("failed to set the config");
+
+        contract
+            .ensure_same_config(&Config {
+                nb_numbers: 4,
+                min_number: 1,
+                max_number: 50,
+            })
+            .expect("failed to set the config");
+
+        let result = contract.ensure_same_config(&Config {
+            nb_numbers: 5,
+            min_number: 1,
+            max_number: 50,
+        });
+        assert_eq!(result, Err(DifferentConfig));
+
+        let result = contract.ensure_same_config(&Config {
+            nb_numbers: 4,
+            min_number: 0,
+            max_number: 50,
+        });
+        assert_eq!(result, Err(DifferentConfig));
+
+        let result = contract.ensure_same_config(&Config {
+            nb_numbers: 4,
+            min_number: 1,
+            max_number: 51,
+        });
+        assert_eq!(result, Err(DifferentConfig));
+    }
+
+    #[ink::test]
+    fn test_check_numbers() {
+        let mut contract = Contract::new();
+
+        let config = contract.get_config();
+        assert_eq!(config, None);
+
+        contract
+            .set_config(Config {
+                nb_numbers: 4,
+                min_number: 1,
+                max_number: 50,
+            })
+            .expect("failed to set the config");
+
+        contract
+            .check_numbers(vec![5u16, 2, 49, 13].as_slice())
+            .expect("failed to check numbers");
+
+        contract
+            .check_numbers(vec![5u16, 9, 1, 50].as_slice())
+            .expect("failed to check numbers");
+
+        let result = contract.check_numbers(vec![9u16, 10, 25].as_slice());
+        assert_eq!(result, Err(IncorrectNbNumbers));
+
+        let result = contract.check_numbers(vec![9u16, 10, 25, 51].as_slice());
+        assert_eq!(result, Err(IncorrectNumbers));
+
+        let result = contract.check_numbers(vec![9u16, 10, 25, 0].as_slice());
+        assert_eq!(result, Err(IncorrectNumbers));
+    }
+}
