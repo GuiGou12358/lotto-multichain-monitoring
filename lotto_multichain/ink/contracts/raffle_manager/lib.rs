@@ -212,9 +212,9 @@ pub mod lotto_registration_manager_contract {
 
         #[ink(message)]
         #[openbrush::modifiers(access_control::only_role(LOTTO_MANAGER_ROLE))]
-        pub fn start(&mut self) -> Result<(), ContractError> {
+        pub fn start(&mut self, previous_draw_number: DrawNumber) -> Result<(), ContractError> {
             // start
-            RaffleManager::start(self)?;
+            RaffleManager::start(self, previous_draw_number)?;
             // propagate the config in all given contracts
             let config = RaffleConfig::ensure_config(self)?;
 
@@ -233,7 +233,7 @@ pub mod lotto_registration_manager_contract {
             &mut self,
             registration_contracts: Vec<RegistrationContractId>,
         ) -> Result<(), ContractError> {
-            let not_synchronized_contracts = RaffleManager::save_registrations_status(
+            let not_synchronized_contracts = RaffleManager::save_registration_contracts_status(
                 self,
                 1,
                 Status::Started,
@@ -276,7 +276,7 @@ pub mod lotto_registration_manager_contract {
             draw_number: DrawNumber,
             registration_contracts: Vec<RegistrationContractId>,
         ) -> Result<(), ContractError> {
-            let not_synchronized_contracts = RaffleManager::save_registrations_status(
+            let not_synchronized_contracts = RaffleManager::save_registration_contracts_status(
                 self,
                 draw_number,
                 Status::RegistrationsOpen,
@@ -322,7 +322,7 @@ pub mod lotto_registration_manager_contract {
             draw_number: DrawNumber,
             registration_contracts: Vec<RegistrationContractId>,
         ) -> Result<(), ContractError> {
-            let not_synchronized_contracts = RaffleManager::save_registrations_status(
+            let not_synchronized_contracts = RaffleManager::save_registration_contracts_status(
                 self,
                 draw_number,
                 Status::RegistrationsClosed,
@@ -419,7 +419,7 @@ pub mod lotto_registration_manager_contract {
             draw_number: DrawNumber,
             registration_contracts: Vec<RegistrationContractId>,
         ) -> Result<(), ContractError> {
-            let not_synchronized_contracts = RaffleManager::save_registrations_status(
+            let not_synchronized_contracts = RaffleManager::save_registration_contracts_status(
                 self,
                 draw_number,
                 Status::Closed,
