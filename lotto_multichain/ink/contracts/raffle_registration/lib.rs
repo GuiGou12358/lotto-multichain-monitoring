@@ -4,7 +4,10 @@
 #[openbrush::contract]
 pub mod lotto_contract {
     use ink::prelude::vec::Vec;
-    use lotto::{config, config::*, error::*, raffle_registration, raffle_registration::*, DrawNumber, Number, RegistrationContractId};
+    use lotto::{
+        config, config::*, error::*, raffle_registration, raffle_registration::*, DrawNumber,
+        Number, RegistrationContractId,
+    };
     use openbrush::contracts::access_control::*;
     use openbrush::contracts::ownable::*;
     use openbrush::{modifiers, traits::Storage};
