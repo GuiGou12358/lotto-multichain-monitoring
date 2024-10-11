@@ -20,29 +20,6 @@ impl EvmContract {
         let config = config.ok_or(EvmContractNotConfigured)?;
         Ok(Self { config })
     }
-/*
-    pub fn complete_raffle(
-        &self,
-        raffle_id: RaffleId,
-        attest_key: &[u8; 32],
-    ) -> Result<Option<Vec<u8>>, RaffleDrawError> {
-        self.do_action(ActionSecondary::CompleteRaffle(raffle_id), attest_key)
-    }
-
-    pub fn send_raffle_result(
-        &self,
-        raffle_id: RaffleId,
-        has_winner: bool,
-        winners: Vec<AccountId20>,
-        attest_key: &[u8; 32],
-    ) -> Result<Option<Vec<u8>>, RaffleDrawError> {
-        self.do_action(
-            ActionSecondary::SetWinners(raffle_id, has_winner, winners),
-            attest_key,
-        )
-    }
- */
-
 }
 
 
@@ -94,75 +71,6 @@ fn connect(config: &EvmContractConfig) -> Result<EvmRollupClient, RaffleDrawErro
         }
     }
 }
-
-/*
-fn encode_response(message: &LottoResponseMessage) -> Result<Vec<u8>, RaffleDrawError> {
-    ink::env::debug_println!("Response Message: {message:?}");
-
-    let raffle_id = message.request.raffle_id;
-
-    const RESPONSE_DRAW_NUMBERS: u8 = 0;
-    const RESPONSE_CHECK_WINNERS: u8 = 1;
-
-    let encoded = match (&message.request.request, &message.response) {
-        (
-            Request::DrawNumbers(nb_numbers, smallest_number, biggest_number),
-            Response::Numbers(numbers),
-        ) => {
-            let numbers: Vec<Token> = numbers
-                .into_iter()
-                .map(|n: &Number| Token::Uint((*n).into()))
-                .collect();
-
-            /*
-                           const request = abiCoder.encode(['uint8', 'uint', 'uint'], [4, 1, 50]);
-                           const response = abiCoder.encode(['uint[]'], [[40, 50, 2, 15]]);
-                           const action = abiCoder.encode(['uint', 'uint8', 'bytes', 'bytes'], [raffleId, DRAW_NUMBERS, request, response]);
-            */
-            let request = ethabi::encode(&[
-                Token::Uint((*nb_numbers).into()),
-                Token::Uint((*smallest_number).into()),
-                Token::Uint((*biggest_number).into()),
-            ]);
-            let response = ethabi::encode(&[Token::Array(numbers)]);
-            ethabi::encode(&[
-                Token::Uint(raffle_id.into()),
-                Token::Uint(RESPONSE_DRAW_NUMBERS.into()),
-                Token::Bytes(request),
-                Token::Bytes(response),
-            ])
-        }
-        (
-            Request::CheckWinners(ref numbers),
-            Response::Winners(substrate_addresses, evm_addresses),
-        ) => {
-            let numbers: Vec<Token> = numbers
-                .into_iter()
-                .map(|n: &Number| Token::Uint((*n).into()))
-                .collect();
-            let winners = Vec::new();
-            // TODO manage winners AccountId20
-            //let winners : Vec<Token> = winners.into_iter().map(|a: &AccountId20| Token::Address((*a).into())).collect();
-            /*
-                          const request = abiCoder.encode(['uint[]'], [[33, 47, 5, 6]]);
-                          const response = abiCoder.encode(['address[]'], [[]]);
-                          const action = abiCoder.encode(['uint', 'uint8', 'bytes', 'bytes'], [raffleId, CHECK_WINNERS, request, response]);
-            */
-            let request = ethabi::encode(&[Token::Array(numbers)]);
-            let response = ethabi::encode(&[Token::Array(winners)]);
-
-            ethabi::encode(&[
-                Token::Uint(raffle_id.into()),
-                Token::Uint(RESPONSE_CHECK_WINNERS.into()),
-                Token::Bytes(request),
-                Token::Bytes(response),
-            ])
-        }
-        _ => return Err(FailedToEncodeResponse),
-    };
-    Ok(encoded)
-}
- */
 
 fn encode_request(request: &RequestForAction) -> Result<Vec<u8>, RaffleDrawError> {
     ink::env::debug_println!("Action Message: {request:?}");

@@ -27,46 +27,6 @@ impl WasmContract {
         Ok(Self { config })
     }
 
-    /*
-       pub fn set_config(
-           &self,
-           config: RaffleConfig,
-           attest_key: &[u8; 32],
-       ) -> Result<Option<Vec<u8>>, RaffleDrawError> {
-           self.do_action(RequestForAction::SetConfig(config), attest_key)
-       }
-
-       pub fn open_registrations(
-           &self,
-           draw_number: DrawNumber,
-           attest_key: &[u8; 32],
-       ) -> Result<Option<Vec<u8>>, RaffleDrawError> {
-           self.do_action(RequestForAction::OpenRegistrations(draw_number), attest_key)
-       }
-
-       pub fn close_registrations(
-           &self,
-           draw_number: DrawNumber,
-           attest_key: &[u8; 32],
-       ) -> Result<Option<Vec<u8>>, RaffleDrawError> {
-           self.do_action(RequestForAction::CloseRegistrations(draw_number), attest_key)
-       }
-
-       pub fn send_results(
-           &self,
-           draw_number: DrawNumber,
-           has_winner: bool,
-           numbers: Vec<Number>,
-           winners: Vec<AccountId32>,
-           attest_key: &[u8; 32],
-       ) -> Result<Option<Vec<u8>>, RaffleDrawError> {
-           self.do_action(
-               RequestForAction::SetResults(draw_number, numbers, winners),
-               attest_key,
-           )
-       }
-    */
-
     pub fn connect(config: &WasmContractConfig) -> Result<InkRollupClient, RaffleDrawError> {
         let result = InkRollupClient::new(
             &config.rpc,
