@@ -100,7 +100,7 @@ pub mod lotto_registration_manager_contract {
 
     /// Message to synchronize the registration contract and request the lotto draw or the list of winners
     /// message pushed in the queue by this contract and read by the offchain rollup
-    #[derive(Eq, PartialEq, Clone, scale::Encode, scale::Decode)]
+    #[derive(scale::Encode, scale::Decode, Eq, PartialEq, Clone, Debug)]
     pub enum LottoManagerRequestMessage {
         PropagateConfig(Config, Vec<RegistrationContractId>),
         OpenRegistrations(DrawNumber, Vec<RegistrationContractId>),
@@ -117,7 +117,7 @@ pub mod lotto_registration_manager_contract {
         /// arg2: number of numbers for the lotto_draw
         /// arg3:  smallest number for the lotto_draw
         /// arg4:  biggest number for the lotto_draw
-        DrawNumbers(DrawNumber, u8, Number, Number),
+        DrawNumbers(DrawNumber, u8, Number, Number), // TODO why we don't put the config here
         /// request to check if there is a winner for the given numbers
         CheckWinners(DrawNumber, Vec<Number>),
     }
@@ -205,6 +205,19 @@ pub mod lotto_registration_manager_contract {
 
             // update the config
             RaffleConfig::set_config(self, config)?;
+
+            Ok(())
+        }
+
+        #[ink(message)]
+        #[openbrush::modifiers(access_control::only_role(LOTTO_MANAGER_ROLE))]
+        pub fn add_registration_contract(
+            &mut self,
+            registration_contract: RegistrationContractId
+        ) -> Result<(), ContractError> {
+            // add registration contract
+            RaffleManager::add_registration_contract(self, registration_contract)?;
+            // TODO develop delete/update
 
             Ok(())
         }
