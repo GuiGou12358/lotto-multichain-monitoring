@@ -1,6 +1,5 @@
 extern crate alloc;
 
-use crate::error::RaffleDrawError;
 use crate::types::{AccountId32, DrawNumber, Hash, Number, RaffleConfig, RegistrationContractId};
 use alloc::vec::Vec;
 

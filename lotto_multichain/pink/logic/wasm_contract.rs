@@ -75,29 +75,33 @@ impl WasmContract {
 }
 
 impl RaffleRegistrationContract for WasmContract {
-    fn get_status(&self) -> Option<RaffleRegistrationStatus> {
-        // use kv store
-        None // TODO
-    }
-
-    fn get_draw_number(&self) -> Option<DrawNumber> {
-        // use kv store
-        None // TODO
-    }
 
     fn do_action(
         &self,
+        expected_draw_number: DrawNumber,
+        expected_status: RaffleRegistrationStatus,
         action: RequestForAction,
         attest_key: &[u8; 32],
-    ) -> Result<Option<Vec<u8>>, RaffleDrawError> {
+    ) -> Result<bool, RaffleDrawError> {
         // connect to the contract
         let mut client = Self::connect(&self.config)?;
 
-        // Attach an action to the tx:
-        client.action(Action::Reply(scale::Encode::encode(&action)));
+        let draw_number = get_draw_number(&mut client)?
+            .ok_or(DrawNumberUnknown)?;
+        let status = get_status(&mut client)?
+            .ok_or(StatusUnknown)?;
 
+        if draw_number == expected_draw_number && status == expected_status {
+            // the contract is already synchronized
+            return Ok(true);
+        }
+
+        // synchronize the contract =>  Attach an action to the tx
+        client.action(Action::Reply(scale::Encode::encode(&action)));
         // submit the transaction
-        Self::maybe_submit_tx(client, attest_key, self.config.sender_key.as_ref())
+        Self::maybe_submit_tx(client, attest_key, self.config.sender_key.as_ref())?;
+
+        Ok(false)
     }
 }
 
@@ -124,6 +128,28 @@ impl RaffleManagerContract for WasmContract {
 
  */
 }
+
+const DRAW_NUMBER: u32 = ink::selector_id!("DRAW_NUMBER");
+const STATUS: u32 = ink::selector_id!("STATUS");
+
+fn get_draw_number(
+    client: &mut InkRollupClient,
+) -> Result<Option<DrawNumber>, RaffleDrawError> {
+    client
+        .get(&DRAW_NUMBER)
+        .log_err("Draw number unknown in kv store")
+        .map_err(|_| DrawNumberUnknown)
+}
+
+fn get_status(
+    client: &mut InkRollupClient,
+) -> Result<Option<RaffleRegistrationStatus>, RaffleDrawError> {
+    client
+        .get(&STATUS)
+        .log_err("Status unknown in kv store")
+        .map_err(|_| StatusUnknown)
+}
+
 
 #[cfg(test)]
 mod tests {

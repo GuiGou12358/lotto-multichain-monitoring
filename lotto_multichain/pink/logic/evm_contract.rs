@@ -20,56 +20,55 @@ impl EvmContract {
         let config = config.ok_or(EvmContractNotConfigured)?;
         Ok(Self { config })
     }
+
+    fn connect(&self) -> Result<EvmRollupClient, RaffleDrawError> {
+        let contract_id: sp_core::H160 = self.config.contract_id.into();
+        let result =
+            EvmRollupClient::new(&self.config.rpc, contract_id).log_err("failed to create rollup client");
+
+        match result {
+            Ok(client) => Ok(client),
+            Err(e) => {
+                pink_extension::error!("Error : {:?}", e);
+                ink::env::debug_println!("Error : {:?}", e);
+                Err(FailedToCreateClient)
+            }
+        }
+    }
 }
 
 
 impl RaffleRegistrationContract for EvmContract {
 
-    fn get_status(
-        &self
-    ) -> Option<RaffleRegistrationStatus> {
-        // use kv store
-        None // TODO
-    }
-
-    fn get_draw_number(
-        &self
-    ) -> Option<DrawNumber> {
-        // use kv store
-        None // TODO
-    }
-
     fn do_action(
         &self,
+        expected_draw_number: DrawNumber,
+        expected_status: RaffleRegistrationStatus,
         action: RequestForAction,
         attest_key: &[u8; 32],
-    ) -> Result<Option<Vec<u8>>, RaffleDrawError> {
+    ) -> Result<bool, RaffleDrawError> {
         // connect to the contract
-        let mut client = connect(&self.config)?;
+        let mut client = self.connect()?;
 
-        // Attach an action to the tx:
+        let draw_number = get_draw_number(&mut client)?
+            .ok_or(DrawNumberUnknown)?;
+        let status = get_status(&mut client)?
+            .ok_or(StatusUnknown)?;
+
+        if draw_number == expected_draw_number && status == expected_status {
+            // the contract is already synchronized
+            return Ok(true);
+        }
+
+        // synchronize the contract =>  Attach an action to the tx
         let action = encode_request(&action)?;
         client.action(Action::Reply(action));
-
         // submit the transaction
-        maybe_submit_tx(client, attest_key, self.config.sender_key.as_ref())
+        maybe_submit_tx(client, attest_key, self.config.sender_key.as_ref())?;
+
+        Ok(false)
     }
 
-}
-
-fn connect(config: &EvmContractConfig) -> Result<EvmRollupClient, RaffleDrawError> {
-    let contract_id: sp_core::H160 = config.contract_id.into();
-    let result =
-        EvmRollupClient::new(&config.rpc, contract_id).log_err("failed to create rollup client");
-
-    match result {
-        Ok(client) => Ok(client),
-        Err(e) => {
-            pink_extension::error!("Error : {:?}", e);
-            ink::env::debug_println!("Error : {:?}", e);
-            Err(FailedToCreateClient)
-        }
-    }
 }
 
 fn encode_request(request: &RequestForAction) -> Result<Vec<u8>, RaffleDrawError> {
@@ -148,7 +147,38 @@ fn maybe_submit_tx(
 }
 
 
+const DRAW_NUMBER : &[u8] = "DRAW_NUMBER".as_bytes();
+const STATUS : &[u8] = "STATUS".as_bytes();
 
+fn get_draw_number(
+    client: &mut EvmRollupClient,
+) -> Result<Option<DrawNumber>, RaffleDrawError> {
+    /*
+    let raw_value = client
+        .session()
+        .get(DRAW_NUMBER)
+        .log_err("Draw number unknown in kv store")
+        .map_err(|_| DrawNumberUnknown)?;
+
+     */
+    // TODO convert encoded value
+    Ok(None)
+}
+
+fn get_status(
+    client: &mut EvmRollupClient,
+) -> Result<Option<RaffleRegistrationStatus>, RaffleDrawError> {
+    /*
+    let raw_value = client
+        .session()
+        .get(&STATUS)
+        .log_err("Status unknown in kv store")
+        .map_err(|_| StatusUnknown)?;
+
+     */
+    // TODO convert encoded value
+    Ok(None)
+}
 
 #[cfg(test)]
 mod tests {

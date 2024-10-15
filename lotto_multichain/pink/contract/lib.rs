@@ -433,6 +433,7 @@ mod lotto_draw_multichain {
         ) -> Result<Vec<RegistrationContractId>> {
             let mut synchronized_contracts = Vec::new();
 
+            // get the status and draw number matching with this action
             let (expected_draw_number, expected_status) = match request {
                 RequestForAction::SetConfig(_) => (0, RaffleRegistrationStatus::NotStarted),
                 RequestForAction::OpenRegistrations(draw_number) => {
@@ -446,32 +447,27 @@ mod lotto_draw_multichain {
                 }
             };
 
+            // iterate on contract_ids
             for contract_id in contract_ids {
+                // get the config linked to this contract
                 let contract_config = self
                     .raffle_registrations
                     .get(contract_id)
                     .ok_or(ContractError::MissingRegistrationContract)?;
+                // build the object to reach this contract
                 let contract: Box<dyn RaffleRegistrationContract> = match contract_config {
                     ContractConfig::Wasm(config) => {
                         WasmContract::new(Some(config)).map(Box::new)?
                     }
                     ContractConfig::Evm(config) => EvmContract::new(Some(config)).map(Box::new)?,
                 };
-
-                let draw_number = contract
-                    .get_draw_number()
-                    .ok_or(ContractError::UnknownDrawNumber)?;
-                let status = contract
-                    .get_status()
-                    .ok_or(ContractError::UnknownRegistrationStatus)?;
-                if draw_number == expected_draw_number && status == expected_status {
-                    // the contract is already synchronized
+                // check the status and draw number and do the action is the contract is not synchronized
+                if contract.do_action(expected_draw_number, expected_status, request.clone(), &self.attest_key)? {
+                    // the contract is synchronized
                     synchronized_contracts.push(*contract_id);
-                } else {
-                    // synchronize the contract
-                    contract.do_action(request.clone(), &self.attest_key)?;
                 }
             }
+            // return the list of synchronized contracts
             Ok(synchronized_contracts)
         }
 

@@ -11,6 +11,8 @@ pub enum RaffleDrawError {
     FailedToCreateClient,
     FailedToCommitTx,
     FailedToCallRollup,
+    StatusUnknown,
+    DrawNumberUnknown,
     // error when checking the winners
     NoNumber,
     IndexerNotConfigured,
