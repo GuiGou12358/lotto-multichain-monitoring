@@ -560,8 +560,6 @@ async fn test_raffles(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
         get_manager_status(&mut client, &contract_id).await
     );
 
-    // TODO participate
-
     // stop the registrations
     alice_close_registrations(&mut client, &contract_id).await;
     assert_eq!(
