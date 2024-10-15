@@ -155,7 +155,7 @@ pub mod lotto_registration_manager_contract {
         ResultsPropagated(DrawNumber, Vec<RegistrationContractId>, Hash),
     }
 
-    /// Contract storage
+    // Contract storage
     #[ink(storage)]
     #[derive(Default, Storage)]
     pub struct Contract {
@@ -213,7 +213,7 @@ pub mod lotto_registration_manager_contract {
         #[openbrush::modifiers(access_control::only_role(LOTTO_MANAGER_ROLE))]
         pub fn add_registration_contract(
             &mut self,
-            registration_contract: RegistrationContractId
+            registration_contract: RegistrationContractId,
         ) -> Result<(), ContractError> {
             // add registration contract
             RaffleManager::add_registration_contract(self, registration_contract)?;
