@@ -93,8 +93,10 @@ async fn alice_starts_raffle(
         .await
         .expect("start raffle failed");
 
-    
-    assert_eq!(previous_draw_number, get_draw_number(client, contract_id).await);
+    assert_eq!(
+        previous_draw_number,
+        get_draw_number(client, contract_id).await
+    );
     assert_eq!(
         raffle_manager::Status::Started,
         get_manager_status(client, contract_id).await
@@ -415,10 +417,7 @@ async fn get_messages_in_queue(
     messages
 }
 
-      
-#[ink_e2e::test(
-    additional_contracts = "contracts/raffle_manager/Cargo.toml"
-)]
+#[ink_e2e::test(additional_contracts = "contracts/raffle_manager/Cargo.toml")]
 async fn test_raffles(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
     // given
     let contract_id = alice_instantiates_raffle_manager(&mut client).await;
@@ -521,8 +520,14 @@ async fn test_raffles(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
     );
 
     // propagate registrations are open
-    attestor_sends_all_registrations_open(&mut client, &contract_id, draw_number, vec![], queue_head)
-        .await;
+    attestor_sends_all_registrations_open(
+        &mut client,
+        &contract_id,
+        draw_number,
+        vec![],
+        queue_head,
+    )
+    .await;
     queue_head += 1;
 
     // all contracts are not synched
@@ -664,7 +669,8 @@ async fn test_raffles(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
     );
 
     // propagate the results
-    attestor_sends_results_propagated(&mut client, &contract_id, draw_number, vec![], queue_head).await;
+    attestor_sends_results_propagated(&mut client, &contract_id, draw_number, vec![], queue_head)
+        .await;
     queue_head += 1;
 
     // all contracts are not synched
@@ -774,9 +780,7 @@ async fn test_raffles(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
     Ok(())
 }
 
-#[ink_e2e::test(
-    additional_contracts = "contracts/raffle_manager/Cargo.toml"
-)]
+#[ink_e2e::test(additional_contracts = "contracts/raffle_manager/Cargo.toml")]
 async fn test_bad_attestor(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
     // given
     let contract_id = alice_instantiates_raffle_manager(&mut client).await;
@@ -808,9 +812,7 @@ async fn test_bad_attestor(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
     Ok(())
 }
 
-#[ink_e2e::test(
-    additional_contracts = "contracts/raffle_manager/Cargo.toml"
-)]
+#[ink_e2e::test(additional_contracts = "contracts/raffle_manager/Cargo.toml")]
 async fn test_bad_messages(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
     // given
     let contract_id = alice_instantiates_raffle_manager(&mut client).await;
@@ -837,9 +839,7 @@ async fn test_bad_messages(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
 /// Bob is the attestor
 /// Charlie is the sender (ie the payer)
 ///
-#[ink_e2e::test(
-    additional_contracts = "contracts/raffle_manager/Cargo.toml"
-)]
+#[ink_e2e::test(additional_contracts = "contracts/raffle_manager/Cargo.toml")]
 async fn test_meta_tx_rollup_cond_eq(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
     let contract_id = alice_instantiates_raffle_manager(&mut client).await;
 

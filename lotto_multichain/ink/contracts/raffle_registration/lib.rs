@@ -5,7 +5,7 @@
 pub mod lotto_registration_contract {
     use ink::prelude::vec::Vec;
     use lotto::{
-        config, config::*, error::*, raffle_registration, raffle_registration::*, DrawNumber,
+        config, config::*, error::*, raffle_registration::*, DrawNumber,
         Number, RegistrationContractId,
     };
     use openbrush::contracts::access_control::*;
@@ -115,7 +115,7 @@ pub mod lotto_registration_contract {
         SetResults(DrawNumber, Vec<Number>, Vec<AccountId>),
     }
 
-    /// Contract storage
+    // Contract storage
     #[ink(storage)]
     #[derive(Default, Storage)]
     pub struct Contract {
@@ -129,8 +129,6 @@ pub mod lotto_registration_contract {
         meta_transaction: meta_transaction::Data,
         #[storage_field]
         config: config::Data,
-        #[storage_field]
-        raffle_registration: raffle_registration::Data,
         registration_contract_id: RegistrationContractId,
     }
 
@@ -154,7 +152,6 @@ pub mod lotto_registration_contract {
 
         #[ink(message)]
         pub fn participate(&mut self, numbers: Vec<Number>) -> Result<(), ContractError> {
-
             // check if the numbers are correct
             RaffleConfig::check_numbers(self, &numbers)?;
             // check if the user can participate (raffle is open)
@@ -162,7 +159,7 @@ pub mod lotto_registration_contract {
             // save the participation with an event
             let participant = Self::env().caller();
             let registration_contract_id = self.registration_contract_id;
-            let draw_number = Raffle::get_draw_number(self);
+            let draw_number = Raffle::get_draw_number(self)?;
             self.env().emit_event(ParticipationRegistered {
                 registration_contract_id,
                 draw_number,
@@ -194,7 +191,7 @@ pub mod lotto_registration_contract {
 
         fn inner_set_config_and_start(&mut self, config: Config) -> Result<(), ContractError> {
             // check the status, we can set the config only when the raffle is not started yet
-            let status = Raffle::get_status(self);
+            let status = Raffle::get_status(self)?;
             if status != Status::NotStarted {
                 return Err(ContractError::RaffleError(RaffleError::IncorrectStatus));
             }

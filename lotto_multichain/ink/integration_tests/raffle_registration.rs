@@ -77,7 +77,6 @@ async fn attestor_set_config_and_start(
         raffle_registration::Status::Started,
         get_status(client, contract_id).await
     );
-
 }
 
 async fn attestor_open_registrations(

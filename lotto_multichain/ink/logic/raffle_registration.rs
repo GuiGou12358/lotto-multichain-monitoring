@@ -1,14 +1,12 @@
 use crate::error::{RaffleError, RaffleError::*};
 use crate::{DrawNumber, Number};
 use ink::prelude::vec::Vec;
-use openbrush::traits::{AccountId, Storage};
+use openbrush::traits::AccountId;
+use phat_rollup_anchor_ink::traits::rollup_anchor::RollupAnchor;
+use scale::{Decode, Encode};
 
-#[derive(Default, Debug)]
-#[openbrush::storage_item]
-pub struct Data {
-    draw_number: DrawNumber,
-    status: Status,
-}
+const STATUS: u32 = ink::selector_id!("STATUS");
+const DRAW_NUMBER: u32 = ink::selector_id!("DRAW_NUMBER");
 
 #[derive(Default, Debug, Eq, PartialEq, Copy, Clone, scale::Encode, scale::Decode)]
 #[cfg_attr(
@@ -25,15 +23,15 @@ pub enum Status {
 }
 
 #[openbrush::trait_definition]
-pub trait Raffle: Storage<Data> {
+pub trait Raffle: RollupAnchor {
     /// start (the config cannot be updated anymore)
     fn start(&mut self) -> Result<(), RaffleError> {
         // check the status
-        if self.data::<Data>().status != Status::NotStarted {
+        if self.get_status()? != Status::NotStarted {
             return Err(IncorrectStatus);
         }
 
-        self.data::<Data>().status = Status::Started;
+        self.set_status(Status::Started);
 
         Ok(())
     }
@@ -41,14 +39,13 @@ pub trait Raffle: Storage<Data> {
     /// Open the registrations
     fn open_registrations(&mut self, draw_number: DrawNumber) -> Result<(), RaffleError> {
         // check the status
-        if self.data::<Data>().status != Status::Started
-            && self.data::<Data>().status != Status::ResultsReceived
-        {
+        let status = self.get_status()?;
+        if status != Status::Started && status != Status::ResultsReceived {
             return Err(IncorrectStatus);
         }
 
-        self.data::<Data>().draw_number = draw_number;
-        self.data::<Data>().status = Status::RegistrationsOpen;
+        self.set_draw_number(draw_number);
+        self.set_status(Status::RegistrationsOpen);
 
         Ok(())
     }
@@ -56,15 +53,15 @@ pub trait Raffle: Storage<Data> {
     /// Close the registrations
     fn close_registrations(&mut self, draw_number: DrawNumber) -> Result<(), RaffleError> {
         // check the status
-        if self.data::<Data>().status != Status::RegistrationsOpen {
+        if self.get_status()? != Status::RegistrationsOpen {
             return Err(IncorrectStatus);
         }
         // check the draw number
-        if self.data::<Data>().draw_number != draw_number {
+        if self.get_draw_number()? != draw_number {
             return Err(IncorrectDrawNumber);
         }
         // update the status
-        self.data::<Data>().status = Status::RegistrationsClosed;
+        self.set_status(Status::RegistrationsClosed);
         Ok(())
     }
 
@@ -76,22 +73,22 @@ pub trait Raffle: Storage<Data> {
         _winners: Vec<AccountId>,
     ) -> Result<(), RaffleError> {
         // check the status
-        if self.data::<Data>().status != Status::RegistrationsClosed {
+        if self.get_status()? != Status::RegistrationsClosed {
             return Err(IncorrectStatus);
         }
         // check the draw number
-        if self.data::<Data>().draw_number != draw_number {
+        if self.get_draw_number()? != draw_number {
             return Err(IncorrectDrawNumber);
         }
 
-        self.data::<Data>().status = Status::ResultsReceived;
+        self.set_status(Status::ResultsReceived);
         Ok(())
     }
 
     /// check if the registrations are open
     fn check_can_participate(&mut self) -> Result<(), RaffleError> {
         // check the status
-        if ! self.can_participate() {
+        if !self.can_participate() {
             return Err(IncorrectStatus);
         }
 
@@ -101,17 +98,31 @@ pub trait Raffle: Storage<Data> {
     /// check if the user can participate are open
     #[ink(message)]
     fn can_participate(&mut self) -> bool {
-        self.data::<Data>().status == Status::RegistrationsOpen
+        self.get_status() == Ok(Status::RegistrationsOpen)
     }
 
     #[ink(message)]
-    fn get_draw_number(&self) -> DrawNumber {
-        self.data::<Data>().draw_number
+    fn get_draw_number(&self) -> Result<DrawNumber, RaffleError> {
+        match RollupAnchor::get_value(self, DRAW_NUMBER.encode()) {
+            Some(v) => DrawNumber::decode(&mut v.as_slice()).map_err(|_| FailedToDecode),
+            _ => Ok(0),
+        }
+    }
+
+    fn set_draw_number(&mut self, draw_number: DrawNumber) {
+        RollupAnchor::set_value(self, &DRAW_NUMBER.encode(), Some(&draw_number.encode()));
     }
 
     #[ink(message)]
-    fn get_status(&self) -> Status {
-        self.data::<Data>().status
+    fn get_status(&self) -> Result<Status, RaffleError> {
+        match RollupAnchor::get_value(self, STATUS.encode()) {
+            Some(v) => Status::decode(&mut v.as_slice()).map_err(|_| FailedToDecode),
+            _ => Ok(Status::NotStarted),
+        }
+    }
+
+    fn set_status(&mut self, status: Status) {
+        RollupAnchor::set_value(self, &STATUS.encode(), Some(&status.encode()));
     }
 }
 
@@ -124,13 +135,13 @@ mod tests {
     fn test_start() {
         let mut contract = Contract::new();
 
-        assert_eq!(contract.get_status(), Status::NotStarted);
-        assert_eq!(contract.get_draw_number(), 0);
+        assert_eq!(contract.get_status(), Ok(Status::NotStarted));
+        assert_eq!(contract.get_draw_number(), Ok(0));
 
         contract.start().expect("Fail to start");
 
-        assert_eq!(contract.get_status(), Status::Started);
-        assert_eq!(contract.get_draw_number(), 0);
+        assert_eq!(contract.get_status(), Ok(Status::Started));
+        assert_eq!(contract.get_draw_number(), Ok(0));
     }
 
     #[ink::test]
@@ -144,8 +155,8 @@ mod tests {
         contract
             .open_registrations(10)
             .expect("Fail to open the registrations");
-        assert_eq!(contract.get_status(), Status::RegistrationsOpen);
-        assert_eq!(contract.get_draw_number(), 10);
+        assert_eq!(contract.get_status(), Ok(Status::RegistrationsOpen));
+        assert_eq!(contract.get_draw_number(), Ok(10));
 
         assert_eq!(contract.open_registrations(10), Err(IncorrectStatus));
         assert_eq!(contract.open_registrations(11), Err(IncorrectStatus));
@@ -171,8 +182,8 @@ mod tests {
         contract
             .close_registrations(10)
             .expect("Fail to close the registrations");
-        assert_eq!(contract.get_status(), Status::RegistrationsClosed);
-        assert_eq!(contract.get_draw_number(), 10);
+        assert_eq!(contract.get_status(), Ok(Status::RegistrationsClosed));
+        assert_eq!(contract.get_draw_number(), Ok(10));
     }
 
     #[ink::test]
@@ -216,8 +227,8 @@ mod tests {
         contract
             .save_results(10, vec![], vec![])
             .expect("Fail to save the results");
-        assert_eq!(contract.get_status(), Status::ResultsReceived);
-        assert_eq!(contract.get_draw_number(), 10);
+        assert_eq!(contract.get_status(), Ok(Status::ResultsReceived));
+        assert_eq!(contract.get_draw_number(), Ok(10));
     }
 
     #[ink::test]
@@ -236,7 +247,9 @@ mod tests {
             .expect("Fail to open the registrations");
 
         assert!(contract.can_participate());
-        contract.check_can_participate().expect("Check Participations Failed");
+        contract
+            .check_can_participate()
+            .expect("Check Participations Failed");
 
         contract
             .close_registrations(10)
@@ -268,8 +281,8 @@ mod tests {
         contract
             .open_registrations(13)
             .expect("Fail to open the registrations");
-        assert_eq!(contract.get_status(), Status::RegistrationsOpen);
-        assert_eq!(contract.get_draw_number(), 13);
+        assert_eq!(contract.get_status(), Ok(Status::RegistrationsOpen));
+        assert_eq!(contract.get_draw_number(), Ok(13));
     }
 
     #[ink::test]
