@@ -2,7 +2,7 @@
 
 #[openbrush::implementation(Ownable, AccessControl, Upgradeable)]
 #[openbrush::contract]
-pub mod lotto_contract {
+pub mod lotto_registration_contract {
     use ink::prelude::vec::Vec;
     use lotto::{
         config, config::*, error::*, raffle_registration, raffle_registration::*, DrawNumber,
@@ -109,7 +109,7 @@ pub mod lotto_contract {
     /// Message sent by the offchain rollup to the Ink! smart contract
     #[derive(scale::Encode, scale::Decode)]
     pub enum RequestForAction {
-        SetConfig(Config),
+        SetConfigAndStart(Config),
         OpenRegistrations(DrawNumber),
         CloseRegistrations(DrawNumber),
         SetResults(DrawNumber, Vec<Number>, Vec<AccountId>),
@@ -154,10 +154,11 @@ pub mod lotto_contract {
 
         #[ink(message)]
         pub fn participate(&mut self, numbers: Vec<Number>) -> Result<(), ContractError> {
+
             // check if the numbers are correct
             RaffleConfig::check_numbers(self, &numbers)?;
             // check if the user can participate (raffle is open)
-            Raffle::can_participate(self)?;
+            Raffle::check_can_participate(self)?;
             // save the participation with an event
             let participant = Self::env().caller();
             let registration_contract_id = self.registration_contract_id;
@@ -184,13 +185,14 @@ pub mod lotto_contract {
             Ok(())
         }
 
+        // TODO remove it
         #[ink(message)]
         #[openbrush::modifiers(access_control::only_role(LOTTO_MANAGER_ROLE))]
-        pub fn set_config(&mut self, config: Config) -> Result<(), ContractError> {
-            self.inner_set_config(config)
+        pub fn set_config_and_start(&mut self, config: Config) -> Result<(), ContractError> {
+            self.inner_set_config_and_start(config)
         }
 
-        fn inner_set_config(&mut self, config: Config) -> Result<(), ContractError> {
+        fn inner_set_config_and_start(&mut self, config: Config) -> Result<(), ContractError> {
             // check the status, we can set the config only when the raffle is not started yet
             let status = Raffle::get_status(self);
             if status != Status::NotStarted {
@@ -207,9 +209,13 @@ pub mod lotto_contract {
                 config,
             });
 
+            // start the raffle
+            Raffle::start(self)?;
+
             Ok(())
         }
 
+        // TODO remove it
         #[ink(message)]
         #[openbrush::modifiers(access_control::only_role(LOTTO_MANAGER_ROLE))]
         pub fn open_registrations(&mut self, draw_number: DrawNumber) -> Result<(), ContractError> {
@@ -233,6 +239,7 @@ pub mod lotto_contract {
             Ok(())
         }
 
+        // TODO remove it
         #[ink(message)]
         #[openbrush::modifiers(access_control::only_role(LOTTO_MANAGER_ROLE))]
         pub fn close_registrations(
@@ -327,8 +334,8 @@ pub mod lotto_contract {
                 .or(Err(RollupAnchorError::FailedToDecode))?;
 
             match request {
-                RequestForAction::SetConfig(config) => {
-                    self.inner_set_config(config)?;
+                RequestForAction::SetConfigAndStart(config) => {
+                    self.inner_set_config_and_start(config)?;
                 }
                 RequestForAction::OpenRegistrations(draw_number) => {
                     self.inner_open_registrations(draw_number)?;

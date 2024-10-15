@@ -89,13 +89,19 @@ pub trait Raffle: Storage<Data> {
     }
 
     /// check if the registrations are open
-    fn can_participate(&mut self) -> Result<(), RaffleError> {
+    fn check_can_participate(&mut self) -> Result<(), RaffleError> {
         // check the status
-        if self.data::<Data>().status != Status::RegistrationsOpen {
+        if ! self.can_participate() {
             return Err(IncorrectStatus);
         }
 
         Ok(())
+    }
+
+    /// check if the user can participate are open
+    #[ink(message)]
+    fn can_participate(&mut self) -> bool {
+        self.data::<Data>().status == Status::RegistrationsOpen
     }
 
     #[ink(message)]
@@ -218,29 +224,31 @@ mod tests {
     fn test_can_participate() {
         let mut contract = Contract::new();
 
-        assert_eq!(contract.can_participate(), Err(IncorrectStatus));
+        assert_eq!(contract.can_participate(), false);
 
         contract.start().expect("Fail to start");
 
-        assert_eq!(contract.can_participate(), Err(IncorrectStatus));
+        assert_eq!(contract.can_participate(), false);
+        assert_eq!(contract.check_can_participate(), Err(IncorrectStatus));
 
         contract
             .open_registrations(10)
             .expect("Fail to open the registrations");
 
-        contract.can_participate().expect("Fail to participate");
+        assert!(contract.can_participate());
+        contract.check_can_participate().expect("Check Participations Failed");
 
         contract
             .close_registrations(10)
             .expect("Fail to close the registrations");
 
-        assert_eq!(contract.can_participate(), Err(IncorrectStatus));
+        assert_eq!(contract.can_participate(), false);
 
         contract
             .save_results(10, vec![], vec![])
             .expect("Fail to save the results");
 
-        assert_eq!(contract.can_participate(), Err(IncorrectStatus));
+        assert_eq!(contract.can_participate(), false);
     }
 
     #[ink::test]
