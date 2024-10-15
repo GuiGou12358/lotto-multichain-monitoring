@@ -3,7 +3,6 @@ use ink_e2e::subxt::tx::Signer;
 use ink_e2e::{build_message, PolkadotConfig};
 use openbrush::contracts::access_control::accesscontrol_external::AccessControl;
 use openbrush::traits::AccountId;
-use openbrush::traits::Balance;
 use scale::Decode;
 use scale::Encode;
 
@@ -93,9 +92,16 @@ async fn alice_starts_raffle(
         .call(&ink_e2e::alice(), start_raffle, 0, None)
         .await
         .expect("start raffle failed");
+
+    
+    assert_eq!(previous_draw_number, get_draw_number(client, contract_id).await);
+    assert_eq!(
+        raffle_manager::Status::Started,
+        get_manager_status(client, contract_id).await
+    );
 }
 
-async fn bob_sends_config_propagated(
+async fn attestor_sends_config_propagated(
     client: &mut ink_e2e::Client<PolkadotConfig, DefaultEnvironment>,
     contract_id: &AccountId,
     registration_contracts: Vec<RegistrationContractId>,
@@ -129,7 +135,7 @@ async fn bob_sends_config_propagated(
     assert!(result.contains_event("Contracts", "ContractEmitted"));
 }
 
-async fn bob_sends_all_registrations_open(
+async fn attestor_sends_all_registrations_open(
     client: &mut ink_e2e::Client<PolkadotConfig, DefaultEnvironment>,
     contract_id: &AccountId,
     draw_number: DrawNumber,
@@ -168,7 +174,7 @@ async fn alice_close_registrations(
         .expect("stop raffle failed");
 }
 
-async fn bob_sends_all_registrations_closed(
+async fn attestor_sends_all_registrations_closed(
     client: &mut ink_e2e::Client<PolkadotConfig, DefaultEnvironment>,
     contract_id: &AccountId,
     draw_number: DrawNumber,
@@ -196,7 +202,7 @@ async fn bob_sends_all_registrations_closed(
     assert!(result.contains_event("Contracts", "ContractEmitted"));
 }
 
-async fn bob_sends_winning_numbers(
+async fn attestor_sends_winning_numbers(
     client: &mut ink_e2e::Client<PolkadotConfig, DefaultEnvironment>,
     contract_id: &AccountId,
     draw_number: DrawNumber,
@@ -223,7 +229,7 @@ async fn bob_sends_winning_numbers(
     assert!(result.contains_event("Contracts", "ContractEmitted"));
 }
 
-async fn bob_sends_winners(
+async fn attestor_sends_winners(
     client: &mut ink_e2e::Client<PolkadotConfig, DefaultEnvironment>,
     contract_id: &AccountId,
     draw_number: DrawNumber,
@@ -251,7 +257,7 @@ async fn bob_sends_winners(
     assert!(result.contains_event("Contracts", "ContractEmitted"));
 }
 
-async fn bob_sends_results_propagated(
+async fn attestor_sends_results_propagated(
     client: &mut ink_e2e::Client<PolkadotConfig, DefaultEnvironment>,
     contract_id: &AccountId,
     draw_number: DrawNumber,
@@ -290,23 +296,6 @@ async fn bob_sends_results_propagated(
     assert!(result.contains_event("Contracts", "ContractEmitted"));
 }
 
-/*
-   async fn participates(
-       client: &mut ink_e2e::Client<PolkadotConfig, DefaultEnvironment>,
-       contract_id: &AccountId,
-       signer: &ink_e2e::Keypair,
-       numbers: Vec<Number>,
-   ) {
-       let participate = build_message::<lotto_registration_manager_contract::ContractRef>(contract_id.clone())
-           .call(|contract| contract.participate(numbers.clone()));
-       client
-           .call(signer, participate, 0, None)
-           .await
-           .expect("Participate failed");
-   }
-
-*/
-
 async fn get_draw_number(
     client: &mut ink_e2e::Client<PolkadotConfig, DefaultEnvironment>,
     contract_id: &AccountId,
@@ -322,30 +311,6 @@ async fn get_draw_number(
 
     draw_number
 }
-/*
-   async fn get_last_raffle_for_verif(
-       client: &mut ink_e2e::Client<PolkadotConfig, DefaultEnvironment>,
-       contract_id: &AccountId,
-   ) -> Option<RaffleId> {
-       // check in the kv store
-       const LAST_RAFFLE_FOR_VERIF: u32 = ink::selector_id!("LAST_RAFFLE_FOR_VERIF");
-
-       let get_value = build_message::<lotto_registration_manager_contract::ContractRef>(contract_id.clone())
-           .call(|contract| contract.get_value(LAST_RAFFLE_FOR_VERIF.encode()));
-
-       let raffle_id = client
-           .call_dry_run(&ink_e2e::alice(), &get_value, 0, None)
-           .await
-           .return_value();
-
-       match raffle_id {
-           Some(r) => Some(
-               RaffleId::decode(&mut r.as_slice()).expect("Cannot decode Last raffle for verif"),
-           ),
-           None => None,
-       }
-   }
-*/
 
 async fn get_manager_status(
     client: &mut ink_e2e::Client<PolkadotConfig, DefaultEnvironment>,
@@ -450,113 +415,9 @@ async fn get_messages_in_queue(
     messages
 }
 
-/*
-   async fn get_pending_rewards_from(
-       client: &mut ink_e2e::Client<PolkadotConfig, DefaultEnvironment>,
-       contract_id: &AccountId,
-       account_id: &AccountId,
-   ) -> Option<Balance> {
-       let get_pending_rewards_from =
-           build_message::<lotto_registration_manager_contract::ContractRef>(contract_id.clone())
-               .call(|contract| contract.get_pending_rewards_from(*account_id));
-
-       let result = client
-           .call_dry_run(&ink_e2e::alice(), &get_pending_rewards_from, 0, None)
-           .await;
-
-       result.return_value()
-   }
-
-   async fn get_total_pending_rewards(
-       client: &mut ink_e2e::Client<PolkadotConfig, DefaultEnvironment>,
-       contract_id: &AccountId,
-   ) -> Balance {
-       let get_total_pending_rewards =
-           build_message::<lotto_registration_manager_contract::ContractRef>(contract_id.clone())
-               .call(|contract| contract.get_total_pending_rewards());
-
-       let result = client
-           .call_dry_run(&ink_e2e::alice(), &get_total_pending_rewards, 0, None)
-           .await;
-
-       result.return_value()
-   }
-
-   async fn fund(
-       client: &mut ink_e2e::Client<PolkadotConfig, DefaultEnvironment>,
-       contract_id: &AccountId,
-       value: Balance,
-   ) {
-       // check the balance of the contract
-       let contract_balance_before = client
-           .balance(*contract_id)
-           .await
-           .expect("getting contract balance failed");
-
-       // fund the contract
-       let fund_contract = build_message::<lotto_registration_manager_contract::ContractRef>(contract_id.clone())
-           .call(|contract| contract.fund());
-       client
-           .call(&ink_e2e::alice(), fund_contract, value, None)
-           .await
-           .expect("fund contract failed");
-
-       // check the balance of the contract
-       let contract_balance_after = client
-           .balance(*contract_id)
-           .await
-           .expect("getting contract balance failed");
-
-       assert_eq!(contract_balance_before + value, contract_balance_after);
-   }
-
-   async fn check_and_claim_rewards(
-       client: &mut ink_e2e::Client<PolkadotConfig, DefaultEnvironment>,
-       contract_id: &AccountId,
-       signer: &ink_e2e::Keypair,
-       value: Balance,
-   ) {
-       let address = ink::primitives::AccountId::from(signer.public_key().0);
-
-       // check the balance before claiming
-       let balance_before = client
-           .balance(address)
-           .await
-           .expect("getting balance failed");
-
-       // check the pending rewards
-       assert_eq!(
-           Some(value),
-           get_pending_rewards_from(client, &contract_id, &address).await
-       );
-
-       // claim the rewards
-       let claim_rewards = build_message::<lotto_registration_manager_contract::ContractRef>(contract_id.clone())
-           .call(|contract| contract.claim());
-
-       client
-           .call(signer, claim_rewards, 0, None)
-           .await
-           .expect("claim rewards failed");
-       // check the balance after claiming
-       let balance_after = client
-           .balance(address)
-           .await
-           .expect("getting balance failed");
-
-       // we need to deduce teh fees
-       //assert_eq!(balance_before + value, balance_after);
-       assert!(balance_after > balance_before);
-
-       assert_eq!(
-           None,
-           get_pending_rewards_from(client, &contract_id, &address).await
-       );
-   }
-*/
-
+      
 #[ink_e2e::test(
-    additional_contracts = "contracts/raffle_manager/Cargo.toml contracts/raffle_registration/Cargo.toml"
+    additional_contracts = "contracts/raffle_manager/Cargo.toml"
 )]
 async fn test_raffles(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
     // given
@@ -591,13 +452,6 @@ async fn test_raffles(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
     // start the raffle
     alice_starts_raffle(&mut client, &contract_id, 10).await;
 
-    let draw_number = get_draw_number(&mut client, &contract_id).await;
-    assert_eq!(draw_number, 10);
-    assert_eq!(
-        raffle_manager::Status::Started,
-        get_manager_status(&mut client, &contract_id).await
-    );
-
     // check the message queue
     let messages = get_messages_in_queue(&mut client, &contract_id).await;
     assert_eq!(messages.len(), 1);
@@ -609,7 +463,7 @@ async fn test_raffles(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
     let mut queue_head = 1;
 
     // propagate the config
-    bob_sends_config_propagated(&mut client, &contract_id, vec![], queue_head).await;
+    attestor_sends_config_propagated(&mut client, &contract_id, vec![], queue_head).await;
     queue_head += 1;
 
     // the registrations are not open because all contracts are not synched
@@ -628,7 +482,7 @@ async fn test_raffles(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
     );
 
     // propagate the missing config
-    bob_sends_config_propagated(&mut client, &contract_id, vec![101, 103], queue_head).await;
+    attestor_sends_config_propagated(&mut client, &contract_id, vec![101, 103], queue_head).await;
     queue_head += 1;
 
     // the registrations are not open because all contracts are not synched
@@ -647,7 +501,7 @@ async fn test_raffles(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
     );
 
     // propagate the missing config
-    bob_sends_config_propagated(&mut client, &contract_id, vec![102], queue_head).await;
+    attestor_sends_config_propagated(&mut client, &contract_id, vec![102], queue_head).await;
     queue_head += 1;
 
     // the registrations are now open
@@ -667,7 +521,7 @@ async fn test_raffles(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
     );
 
     // propagate registrations are open
-    bob_sends_all_registrations_open(&mut client, &contract_id, draw_number, vec![], queue_head)
+    attestor_sends_all_registrations_open(&mut client, &contract_id, draw_number, vec![], queue_head)
         .await;
     queue_head += 1;
 
@@ -681,7 +535,7 @@ async fn test_raffles(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
     );
 
     // propagate all registrations are open
-    bob_sends_all_registrations_open(
+    attestor_sends_all_registrations_open(
         &mut client,
         &contract_id,
         draw_number,
@@ -711,7 +565,7 @@ async fn test_raffles(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
     );
 
     // propagate registrations are closed
-    bob_sends_all_registrations_closed(
+    attestor_sends_all_registrations_closed(
         &mut client,
         &contract_id,
         draw_number,
@@ -731,7 +585,7 @@ async fn test_raffles(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
     );
 
     // propagate registrations are closed
-    bob_sends_all_registrations_closed(
+    attestor_sends_all_registrations_closed(
         &mut client,
         &contract_id,
         draw_number,
@@ -756,7 +610,7 @@ async fn test_raffles(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
     );
 
     let numbers: Vec<Number> = vec![5, 40, 8, 2];
-    bob_sends_winning_numbers(
+    attestor_sends_winning_numbers(
         &mut client,
         &contract_id,
         draw_number,
@@ -781,7 +635,7 @@ async fn test_raffles(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
 
     // send no winner
     let winners: Vec<AccountId> = vec![];
-    bob_sends_winners(
+    attestor_sends_winners(
         &mut client,
         &contract_id,
         draw_number,
@@ -810,7 +664,7 @@ async fn test_raffles(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
     );
 
     // propagate the results
-    bob_sends_results_propagated(&mut client, &contract_id, draw_number, vec![], queue_head).await;
+    attestor_sends_results_propagated(&mut client, &contract_id, draw_number, vec![], queue_head).await;
     queue_head += 1;
 
     // all contracts are not synched
@@ -828,7 +682,7 @@ async fn test_raffles(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
     );
 
     // propagate the results
-    bob_sends_results_propagated(
+    attestor_sends_results_propagated(
         &mut client,
         &contract_id,
         draw_number,
@@ -921,7 +775,7 @@ async fn test_raffles(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
 }
 
 #[ink_e2e::test(
-    additional_contracts = "contracts/raffle_manager/Cargo.toml contracts/raffle_registration/Cargo.toml"
+    additional_contracts = "contracts/raffle_manager/Cargo.toml"
 )]
 async fn test_bad_attestor(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
     // given
@@ -955,7 +809,7 @@ async fn test_bad_attestor(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
 }
 
 #[ink_e2e::test(
-    additional_contracts = "contracts/raffle_manager/Cargo.toml contracts/raffle_registration/Cargo.toml"
+    additional_contracts = "contracts/raffle_manager/Cargo.toml"
 )]
 async fn test_bad_messages(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
     // given
@@ -984,7 +838,7 @@ async fn test_bad_messages(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
 /// Charlie is the sender (ie the payer)
 ///
 #[ink_e2e::test(
-    additional_contracts = "contracts/raffle_manager/Cargo.toml contracts/raffle_registration/Cargo.toml"
+    additional_contracts = "contracts/raffle_manager/Cargo.toml"
 )]
 async fn test_meta_tx_rollup_cond_eq(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
     let contract_id = alice_instantiates_raffle_manager(&mut client).await;
