@@ -427,12 +427,12 @@ mod lotto_draw_multichain {
                 }
                 LottoManagerRequestMessage::PropagateResults(
                     draw_number,
-                    ref _numbers,
-                    ref _winners,
+                    ref numbers,
+                    ref winners,
                     ref contract_ids,
                 ) => {
                     let synchronized_contracts = self.inner_do_action(
-                        RequestForAction::SetResults(draw_number, vec![], vec![]),
+                        RequestForAction::SetResults(draw_number, numbers.to_vec(), winners.to_vec()),
                         contract_ids,
                     )?;
                     let hash = [0; 32]; // TODO compute hash
@@ -543,7 +543,8 @@ mod lotto_draw_multichain {
             );
 
             let indexer = Indexer::new(self.get_indexer_url())?;
-            let hashes = indexer.query_hashes(draw_number)?;
+            //let hashes = indexer.query_hashes(draw_number)?;
+            let hashes = vec![]; // TODO implement get hashes
 
             let draw = Draw::new(nb_numbers, smallest_number, biggest_number)?;
             let result = draw.get_numbers(draw_number, hashes)?;

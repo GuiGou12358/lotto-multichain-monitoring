@@ -52,12 +52,6 @@ pub enum LottoManagerResponseMessage {
     /// arg1: draw number
     /// arg2: list of contracts where the registrations are closed
     RegistrationsClosed(DrawNumber, Vec<RegistrationContractId>),
-    ///
-    /// arg1: draw number
-    /// arg2: list of contracts where the results are propagated
-    /// arg3: hash of results
-    ResultsPropagated(DrawNumber, Vec<RegistrationContractId>, Hash),
-
     /// Return the winning numbers
     /// arg1: draw number
     /// arg2: winning numbers
@@ -68,6 +62,11 @@ pub enum LottoManagerResponseMessage {
     /// arg2: winners
     /// arg3: hash of winning numbers
     Winners(DrawNumber, Vec<AccountId32>, Hash),
+    ///
+    /// arg1: draw number
+    /// arg2: list of contracts where the results are propagated
+    /// arg3: hash of results
+    ResultsPropagated(DrawNumber, Vec<RegistrationContractId>, Hash),
 }
 
 pub trait RaffleManagerContract {
