@@ -102,6 +102,24 @@ mod lotto_draw_multichain {
             signing::get_public_key(&self.attest_key, signing::SigType::Sr25519)
         }
 
+        /// Set attestor key.
+        ///
+        /// For dev purpose.
+        #[ink(message)]
+        pub fn set_attest_key(&mut self, attest_key: Option<Vec<u8>>) -> Result<()> {
+            self.attest_key = match attest_key {
+                Some(key) => key.try_into().or(Err(ContractError::InvalidKeyLength))?,
+                None => {
+                    const NONCE: &[u8] = b"lotto";
+                    let private_key = signing::derive_sr25519_key(NONCE);
+                    private_key[..32]
+                        .try_into()
+                        .or(Err(ContractError::InvalidKeyLength))?
+                }
+            };
+            Ok(())
+        }
+
         /// Gets the ecdsa address used by this rollup in the meta transaction
         #[ink(message)]
         pub fn get_attest_ecdsa_address(&self) -> Vec<u8> {
@@ -338,10 +356,13 @@ mod lotto_draw_multichain {
             ink::env::debug_println!("Received request: {request:02x?}");
 
             let response = self.handle_request(request)?;
+            let encoded_response = response.encode();
+            ink::env::debug_println!("Manager encoded response: {encoded_response:02x?}");
             // Attach an action to the tx by:
             client.action(Action::Reply(response.encode()));
 
             let tx = WasmContract::maybe_submit_tx(client, &self.attest_key, sender_key.as_ref())?;
+            ink::env::debug_println!("tx: {tx:02x?}");
             Ok(tx)
         }
 
@@ -434,16 +455,16 @@ mod lotto_draw_multichain {
             let mut synchronized_contracts = Vec::new();
 
             // get the status and draw number matching with this action
-            let (expected_draw_number, expected_status) = match request {
-                RequestForAction::SetConfig(_) => (0, RaffleRegistrationStatus::NotStarted),
+            let (target_draw_number, target_status) = match request {
+                RequestForAction::SetConfig(_) => (None, Some(RaffleRegistrationStatus::Started)),
                 RequestForAction::OpenRegistrations(draw_number) => {
-                    (draw_number, RaffleRegistrationStatus::RegistrationOpen)
+                    (Some(draw_number), Some(RaffleRegistrationStatus::RegistrationOpen))
                 }
                 RequestForAction::CloseRegistrations(draw_number) => {
-                    (draw_number, RaffleRegistrationStatus::RegistrationClosed)
+                    (Some(draw_number), Some(RaffleRegistrationStatus::RegistrationClosed))
                 }
                 RequestForAction::SetResults(draw_number, _, _) => {
-                    (draw_number, RaffleRegistrationStatus::ResultsReceived)
+                    (Some(draw_number), Some(RaffleRegistrationStatus::ResultsReceived))
                 }
             };
 
@@ -462,7 +483,7 @@ mod lotto_draw_multichain {
                     ContractConfig::Evm(config) => EvmContract::new(Some(config)).map(Box::new)?,
                 };
                 // check the status and draw number and do the action is the contract is not synchronized
-                if contract.do_action(expected_draw_number, expected_status, request.clone(), &self.attest_key)? {
+                if contract.do_action(target_draw_number, target_status, request.clone(), &self.attest_key)? {
                     // the contract is synchronized
                     synchronized_contracts.push(*contract_id);
                 }
@@ -591,37 +612,50 @@ mod lotto_draw_multichain {
             pallet_id: u8,
             call_id: u8,
             /// The rollup anchor address on the target blockchain
-            contract_id: WasmContractId,
+            manager_contract_id: WasmContractId,
+            /// The rollup anchor address on the target blockchain
+            lotto_contract_id: WasmContractId,
             /// When we want to manually set the attestor key for signing the message (only dev purpose)
-            //attest_key: Vec<u8>,
+            attest_key: Option<Vec<u8>>,
             /// When we want to use meta tx
             sender_key: Option<Vec<u8>>,
         }
 
-        fn get_env(key: &str) -> String {
-            std::env::var(key).expect("env not found")
+        fn get_env(key: &str) -> Option<String> {
+            match std::env::var(key) {
+                Ok(k) => Some(k),
+                _ => {
+                    ink::env::debug_println!("Key {key} not found");
+                    None
+                }
+            }
         }
 
         fn config() -> EnvVars {
             dotenvy::dotenv().ok();
-            let rpc = get_env("RPC");
-            let pallet_id: u8 = get_env("PALLET_ID").parse().expect("u8 expected");
-            let call_id: u8 = get_env("CALL_ID").parse().expect("u8 expected");
-            let contract_id: WasmContractId = hex::decode(get_env("CONTRACT_ID"))
+            let rpc = get_env("RPC").unwrap();
+            let pallet_id: u8 = get_env("PALLET_ID").unwrap().parse().expect("u8 expected");
+            let call_id: u8 = get_env("CALL_ID").unwrap().parse().expect("u8 expected");
+            let manager_contract_id: WasmContractId = hex::decode(get_env("MANAGER_CONTRACT_ID").unwrap())
                 .expect("hex decode failed")
                 .try_into()
                 .expect("incorrect length");
-            //let attest_key = hex::decode(get_env("ATTEST_KEY")).expect("hex decode failed");
-            let sender_key = std::env::var("SENDER_KEY")
-                .map(|s| hex::decode(s).expect("hex decode failed"))
-                .ok();
+            let lotto_contract_id: WasmContractId = hex::decode(get_env("LOTTO_CONTRACT_ID").unwrap())
+                .expect("hex decode failed")
+                .try_into()
+                .expect("incorrect length");
+            let attest_key = get_env("ATTEST_KEY")
+                .map(|s| hex::decode(s).expect("hex decode failed"));
+            let sender_key = get_env("SENDER_KEY")
+                .map(|s| hex::decode(s).expect("hex decode failed"));
 
             EnvVars {
                 rpc: rpc.to_string(),
                 pallet_id,
                 call_id,
-                contract_id: contract_id.into(),
-                //attest_key,
+                manager_contract_id: manager_contract_id.into(),
+                lotto_contract_id: lotto_contract_id.into(),
+                attest_key,
                 sender_key,
             }
         }
@@ -631,20 +665,41 @@ mod lotto_draw_multichain {
                 rpc,
                 pallet_id,
                 call_id,
-                contract_id,
-                //attest_key,
+                manager_contract_id,
+                lotto_contract_id,
+                attest_key,
                 sender_key,
             } = config();
 
             let mut lotto = Lotto::default();
+            let sender_key = match sender_key {
+                Some(k) => Some(k.try_into().expect("fatal sender key")),
+                None => None,
+            };
+
+            let manager_config = WasmContractConfig {
+                rpc: rpc.clone(), pallet_id, call_id, contract_id: manager_contract_id.into(), sender_key : sender_key.clone()
+            };
+
+            let registration_contract_config_10 = WasmContractConfig {
+                rpc, pallet_id, call_id, contract_id: lotto_contract_id.into(), sender_key
+            };
+
             lotto
-                .set_primary_consumer(rpc, pallet_id, call_id, contract_id.into(), sender_key)
+                .set_config_raffle_manager(Some(ContractConfig::Wasm(manager_config)))
                 .unwrap();
+
+            lotto.set_config_raffle_registrations(100, Some(ContractConfig::Wasm(registration_contract_config_10)))
+                .unwrap();
+
+            if let Some(attest_key) = attest_key {
+                lotto.set_attest_key(Some(attest_key)).unwrap();
+            }
 
             lotto
                 .config_indexer("https://query.substrate.fi/lotto-subquery-shibuya".to_string())
                 .unwrap();
-            //lotto.set_attest_key(Some(attest_key)).unwrap();
+
 
             lotto
         }
@@ -656,6 +711,13 @@ mod lotto_draw_multichain {
             pink_extension_runtime::mock_ext::mock_all_ext();
 
             let lotto = init_contract();
+
+            let attestor_address = lotto.get_attest_address();
+            ink::env::debug_println!("attestor address: {attestor_address:02x?}");
+            let attestor_ecdsa_address = lotto.get_attest_ecdsa_address();
+            ink::env::debug_println!("attestor ecdsa address: {attestor_ecdsa_address:02x?}");
+            let sender_address = lotto.get_sender_address_raffle_registration(10);
+            ink::env::debug_println!("sender address 10: {sender_address:02x?}");
 
             let r = lotto.answer_request().expect("failed to answer request");
             ink::env::debug_println!("answer request: {r:?}");
