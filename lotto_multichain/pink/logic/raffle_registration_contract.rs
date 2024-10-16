@@ -4,7 +4,7 @@ use crate::error::RaffleDrawError;
 use crate::types::{AccountId32, DrawNumber, Number, RaffleConfig};
 use alloc::vec::Vec;
 
-#[derive(scale::Encode, scale::Decode, Eq, PartialEq, Clone, Copy)]
+#[derive(scale::Encode, scale::Decode, Eq, PartialEq, Clone, Copy, Debug)]
 pub enum RaffleRegistrationStatus {
     NotStarted,
     Started,
@@ -26,8 +26,8 @@ pub trait RaffleRegistrationContract {
 
     fn do_action(
         &self,
-        expected_draw_number: DrawNumber,
-        expected_status: RaffleRegistrationStatus,
+        target_draw_number: Option<DrawNumber>,
+        target_status: Option<RaffleRegistrationStatus>,
         action: RequestForAction,
         attest_key: &[u8; 32],
     ) -> Result<bool, RaffleDrawError>;

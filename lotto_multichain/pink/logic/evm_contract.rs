@@ -42,20 +42,33 @@ impl RaffleRegistrationContract for EvmContract {
 
     fn do_action(
         &self,
-        expected_draw_number: DrawNumber,
-        expected_status: RaffleRegistrationStatus,
+        expected_draw_number: Option<DrawNumber>,
+        expected_status: Option<RaffleRegistrationStatus>,
         action: RequestForAction,
         attest_key: &[u8; 32],
     ) -> Result<bool, RaffleDrawError> {
         // connect to the contract
         let mut client = self.connect()?;
 
-        let draw_number = get_draw_number(&mut client)?
-            .ok_or(DrawNumberUnknown)?;
-        let status = get_status(&mut client)?
-            .ok_or(StatusUnknown)?;
+        let correct_status = match expected_status {
+            Some(expected_status) => {
+                let status = get_status(&mut client)?
+                    .ok_or(StatusUnknown)?;
+                status == expected_status
+            },
+            None => true,
+        };
 
-        if draw_number == expected_draw_number && status == expected_status {
+        let correct_draw_number = match expected_draw_number {
+            Some(expected_draw_number) => {
+                let draw_number = get_draw_number(&mut client)?
+                    .ok_or(DrawNumberUnknown)?;
+                draw_number == expected_draw_number
+            },
+            None => true,
+        };
+
+        if correct_draw_number && correct_status {
             // the contract is already synchronized
             return Ok(true);
         }

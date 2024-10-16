@@ -78,29 +78,45 @@ impl RaffleRegistrationContract for WasmContract {
 
     fn do_action(
         &self,
-        expected_draw_number: DrawNumber,
-        expected_status: RaffleRegistrationStatus,
+        target_draw_number: Option<DrawNumber>,
+        target_status: Option<RaffleRegistrationStatus>,
         action: RequestForAction,
         attest_key: &[u8; 32],
     ) -> Result<bool, RaffleDrawError> {
         // connect to the contract
+
+        ink::env::debug_println!("target_draw_number : {target_draw_number:?}");
+        ink::env::debug_println!("target_status : {target_status:?}");
+        let config = &self.config;
+        ink::env::debug_println!("connect to : {config:?}");
+
         let mut client = Self::connect(&self.config)?;
 
-        let draw_number = get_draw_number(&mut client)?
-            .ok_or(DrawNumberUnknown)?;
-        let status = get_status(&mut client)?
-            .ok_or(StatusUnknown)?;
+        let status = get_status(&mut client)?;
+        let draw_number = get_draw_number(&mut client)?;
 
-        if draw_number == expected_draw_number && status == expected_status {
+        ink::env::debug_println!("status : {status:?}");
+        ink::env::debug_println!("draw_number : {draw_number:?}");
+
+        if draw_number == target_draw_number && status == target_status {
             // the contract is already synchronized
+            ink::env::debug_println!("Synched");
             return Ok(true);
         }
 
+
+        let encoded_reply = scale::Encode::encode(&action);
+        ink::env::debug_println!("Do action - Encoded Reply : {encoded_reply:02x?}");
+        ink::env::debug_println!("with attest_key : {attest_key:02x?}");
+        let sender_key = self.config.sender_key.as_ref();
+        ink::env::debug_println!("with sender_key : {sender_key:02x?}");
+
         // synchronize the contract =>  Attach an action to the tx
         client.action(Action::Reply(scale::Encode::encode(&action)));
-        // submit the transaction
-        Self::maybe_submit_tx(client, attest_key, self.config.sender_key.as_ref())?;
 
+        // submit the transaction
+        let tx = Self::maybe_submit_tx(client, attest_key, self.config.sender_key.as_ref())?;
+        ink::env::debug_println!("tx submitted: {tx:02x?}");
         Ok(false)
     }
 }
@@ -144,6 +160,8 @@ fn get_draw_number(
 fn get_status(
     client: &mut InkRollupClient,
 ) -> Result<Option<RaffleRegistrationStatus>, RaffleDrawError> {
+    let key = &STATUS.encode();
+    ink::env::debug_println!("status key: {key:02x?}");
     client
         .get(&STATUS)
         .log_err("Status unknown in kv store")
