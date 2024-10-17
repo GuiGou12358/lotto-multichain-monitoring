@@ -98,57 +98,55 @@ pub mod lotto_registration_manager_contract {
         }
     }
 
-    /// Message to synchronize the registration contract and request the lotto draw or the list of winners
+    /// Message to synchronize the contracts, to request the lotto draw and get the list of winners.
     /// message pushed in the queue by this contract and read by the offchain rollup
     #[derive(scale::Encode, scale::Decode, Eq, PartialEq, Clone, Debug)]
     pub enum LottoManagerRequestMessage {
+        /// request to propagate the config to all given contracts
         PropagateConfig(Config, Vec<RegistrationContractId>),
+        /// request to open the registrations to all given contracts
         OpenRegistrations(DrawNumber, Vec<RegistrationContractId>),
+        /// request to close the registrations to all given contracts
         CloseRegistrations(DrawNumber, Vec<RegistrationContractId>),
+        /// request to draw the numbers based on the config
+        DrawNumbers(DrawNumber, Config),
+        /// request to check if there is a winner for the given numbers
+        CheckWinners(DrawNumber, Vec<Number>),
+        /// request to propagate the results to all given contracts
         PropagateResults(
             DrawNumber,
             Vec<Number>,
             Vec<AccountId>,
             Vec<RegistrationContractId>,
         ),
-
-        /// request to lotto_draw the n number between min and max values
-        /// arg1: draw number
-        /// arg2: number of numbers for the lotto_draw
-        /// arg3:  smallest number for the lotto_draw
-        /// arg4:  biggest number for the lotto_draw
-        DrawNumbers(DrawNumber, u8, Number, Number), // TODO why we don't put the config here
-        /// request to check if there is a winner for the given numbers
-        CheckWinners(DrawNumber, Vec<Number>),
     }
 
-    /// Message sent to provide the lotto lotto_draw or the list of winners
-    /// response pushed in the queue by the offchain rollup and read by the Ink! smart contract
+    /// Offchain rollup response
     #[derive(scale::Encode, scale::Decode)]
     pub enum LottoManagerResponseMessage {
-        ///
-        /// arg1: list of contracts where the config is propagated
-        /// arg2: hash of config
+        /// The config is propagated to the given contract ids.
+        /// arg2: list of contracts where the config is propagated
+        /// Arg2 : Hash of config
         ConfigPropagated(Vec<RegistrationContractId>, Hash),
-        ///
+        /// The registration is open for the given contract ids.
         /// arg1: draw number
-        /// arg2: list of contracts where the registrations are open
+        /// arg2: list of contracts where the registration is open
         RegistrationsOpen(DrawNumber, Vec<RegistrationContractId>),
-        ///
+        /// The registration is closed for the given contract ids.
         /// arg1: draw number
-        /// arg2: list of contracts where the registrations are closed
+        /// arg2: list of contracts where the registration is closed
         RegistrationsClosed(DrawNumber, Vec<RegistrationContractId>),
         /// Return the winning numbers
         /// arg1: draw number
         /// arg2: winning numbers
-        /// arg3: salt used for vrf
+        /// arg3: hash of salt used for vrf
         WinningNumbers(DrawNumber, Vec<Number>, Hash),
         /// Return the list of winners
         /// arg1: draw number
         /// arg2: winners
         /// arg3: hash of winning numbers
         Winners(DrawNumber, Vec<AccountId>, Hash),
-        ///
+        /// The results are propagated to the given contract ids.
         /// arg1: draw number
         /// arg2: list of contracts where the results are propagated
         /// arg3: hash of results
@@ -171,6 +169,7 @@ pub mod lotto_registration_manager_contract {
         config: config::Data,
         #[storage_field]
         raffle_manager: raffle_manager::Data,
+        block_number_close_registrations: BlockNumber,
     }
 
     impl RaffleConfig for Contract {}
@@ -306,10 +305,30 @@ pub mod lotto_registration_manager_contract {
             }
 
             // all contracts are synchronized
-            // TODO we can close the registration in X block
-            //RaffleManager::open_registrations_completed(self)?;
+            // we can close the registration in X block
+            let block_number = self.env().block_number();
+            self.block_number_close_registrations = block_number.checked_add(100).ok_or(RaffleError::AddOverFlow)?;
 
             Ok(())
+        }
+
+        #[ink(message)]
+        pub fn has_pending_message(&self) -> bool {
+            let tail = RollupAnchor::get_queue_tail(self).unwrap_or_default();
+            let head = RollupAnchor::get_queue_head(self).unwrap_or_default();
+            tail > head
+        }
+
+        #[ink(message)]
+        pub fn can_close_registrations(&self) -> bool {
+            // check the status of all contracts
+            if ! RaffleManager::can_close_registrations(self) {
+                return false;
+            }
+
+            // check the block number
+            let block_number = self.env().block_number();
+            block_number >= self.block_number_close_registrations
         }
 
         #[ink(message)]
@@ -356,9 +375,7 @@ pub mod lotto_registration_manager_contract {
             // TODO get the hash when the registration is closed
             let message = LottoManagerRequestMessage::DrawNumbers(
                 draw_number,
-                config.nb_numbers,
-                config.min_number,
-                config.max_number,
+                config,
             );
             RollupAnchor::push_message(self, &message)?;
 
@@ -438,7 +455,7 @@ pub mod lotto_registration_manager_contract {
                 registration_contracts,
             )?;
 
-            let winners = RaffleManager::get_winners(self, draw_number).unwrap_or(Vec::new());
+            let winners = RaffleManager::get_winners(self, draw_number).unwrap_or_default();
 
             if !not_synchronized_contracts.is_empty() {
                 // synchronized missing contracts and wait

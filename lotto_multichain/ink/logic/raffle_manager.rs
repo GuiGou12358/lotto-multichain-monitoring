@@ -88,6 +88,11 @@ pub trait RaffleManager: Storage<Data> {
         Ok(new_draw_number)
     }
 
+    /// Return true if the registrations can be closed
+    fn can_close_registrations(&self) -> bool {
+        self.check_registration_contracts_status(Status::RegistrationsOpen).is_ok()
+    }
+
     /// Close the registrations
     fn close_registrations(&mut self) -> Result<DrawNumber, RaffleError> {
         // check the status
@@ -100,7 +105,7 @@ pub trait RaffleManager: Storage<Data> {
 
     /// Save the status for given registration contracts
     /// return the contracts not synchronized yet
-    fn check_registration_contracts_status(&mut self, status: Status) -> Result<(), RaffleError> {
+    fn check_registration_contracts_status(&self, status: Status) -> Result<(), RaffleError> {
         // check the status in the manager
         if self.data::<Data>().status != status {
             return Err(IncorrectStatus);
@@ -353,16 +358,19 @@ mod tests {
     fn test_close_registrations() {
         let mut contract = Contract::new();
 
+        assert_eq!(false, contract.can_close_registrations());
         assert_eq!(contract.close_registrations(), Err(IncorrectStatus));
 
         contract.start(0).expect("Fail to start");
 
+        assert_eq!(false, contract.can_close_registrations());
         assert_eq!(contract.close_registrations(), Err(IncorrectStatus));
 
         contract
             .open_registrations()
             .expect("Fail to open the registrations");
 
+        assert_eq!(true, contract.can_close_registrations());
         contract
             .close_registrations()
             .expect("Fail to close the registrations");
