@@ -308,7 +308,9 @@ pub mod lotto_registration_manager_contract {
             // all contracts are synchronized
             // we can close the registration in X block
             let block_number = self.env().block_number();
-            self.block_number_close_registrations = block_number.checked_add(0).ok_or(RaffleError::AddOverFlow)?;
+            self.block_number_close_registrations = block_number
+                .checked_add(0)
+                .ok_or(RaffleError::AddOverFlow)?;
 
             Ok(())
         }
@@ -323,7 +325,7 @@ pub mod lotto_registration_manager_contract {
         #[ink(message)]
         pub fn can_close_registrations(&self) -> bool {
             // check the status of all contracts
-            if ! RaffleManager::can_close_registrations(self) {
+            if !RaffleManager::can_close_registrations(self) {
                 return false;
             }
 
@@ -378,10 +380,7 @@ pub mod lotto_registration_manager_contract {
             // if all contracts are synchronized, we can request the draw numbers
             let config = RaffleConfig::ensure_config(self)?;
             // TODO get the hash when the registration is closed
-            let message = LottoManagerRequestMessage::DrawNumbers(
-                draw_number,
-                config,
-            );
+            let message = LottoManagerRequestMessage::DrawNumbers(draw_number, config);
             RollupAnchor::push_message(self, &message)?;
 
             Ok(())

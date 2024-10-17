@@ -90,7 +90,8 @@ pub trait RaffleManager: Storage<Data> {
 
     /// Return true if the registrations can be closed
     fn can_close_registrations(&self) -> bool {
-        self.check_registration_contracts_status(Status::RegistrationsOpen).is_ok()
+        self.check_registration_contracts_status(Status::RegistrationsOpen)
+            .is_ok()
     }
 
     /// Close the registrations

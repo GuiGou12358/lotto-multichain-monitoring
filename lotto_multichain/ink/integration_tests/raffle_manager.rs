@@ -474,19 +474,13 @@ async fn test_raffles(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
     );
 
     // check the message queue
-    assert_eq!(
-        false,
-        has_pending_message(&mut client, &contract_id).await
-    );
+    assert_eq!(false, has_pending_message(&mut client, &contract_id).await);
 
     // start the raffle
     alice_starts_raffle(&mut client, &contract_id, 10).await;
 
     // check the message queue
-    assert_eq!(
-        true,
-        has_pending_message(&mut client, &contract_id).await
-    );
+    assert_eq!(true, has_pending_message(&mut client, &contract_id).await);
     let messages = get_messages_in_queue(&mut client, &contract_id).await;
     assert_eq!(messages.len(), 1);
     assert_eq!(
@@ -587,10 +581,7 @@ async fn test_raffles(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
 
     // all contracts are synched
     // check the messages in the queue
-    assert_eq!(
-        false,
-        has_pending_message(&mut client, &contract_id).await
-    );
+    assert_eq!(false, has_pending_message(&mut client, &contract_id).await);
     let messages = get_messages_in_queue(&mut client, &contract_id).await;
     assert_eq!(messages.len(), 0);
 
@@ -623,10 +614,7 @@ async fn test_raffles(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
 
     // all contracts are not synched
     // check the message in the queue
-    assert_eq!(
-        true,
-        has_pending_message(&mut client, &contract_id).await
-    );
+    assert_eq!(true, has_pending_message(&mut client, &contract_id).await);
     let messages = get_messages_in_queue(&mut client, &contract_id).await;
     assert_eq!(messages.len(), 1);
     assert_eq!(
@@ -651,10 +639,7 @@ async fn test_raffles(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
     assert_eq!(messages.len(), 1);
     assert_eq!(
         messages[0],
-        LottoManagerRequestMessage::DrawNumbers(
-            draw_number,
-            config,
-        )
+        LottoManagerRequestMessage::DrawNumbers(draw_number, config,)
     );
 
     let numbers: Vec<Number> = vec![5, 40, 8, 2];

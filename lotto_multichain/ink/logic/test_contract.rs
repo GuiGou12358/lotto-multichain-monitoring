@@ -3,10 +3,7 @@
 #[openbrush::implementation(AccessControl)]
 #[openbrush::contract]
 pub mod lotto_contract {
-    use crate::{
-        config, config::*, raffle_manager, raffle_manager::*,
-        raffle_registration::*,
-    };
+    use crate::{config, config::*, raffle_manager, raffle_manager::*, raffle_registration::*};
     use openbrush::traits::Storage;
     use phat_rollup_anchor_ink::traits::{rollup_anchor, rollup_anchor::*};
 
