@@ -1,10 +1,8 @@
-use ink::env::{debug_println, DefaultEnvironment};
+use ink::env::DefaultEnvironment;
 use ink_e2e::subxt::tx::Signer;
 use ink_e2e::{build_message, PolkadotConfig};
 use openbrush::contracts::access_control::accesscontrol_external::AccessControl;
 use openbrush::traits::AccountId;
-use openbrush::traits::Balance;
-use scale::Decode;
 use scale::Encode;
 
 use lotto::config::Config;
@@ -209,37 +207,12 @@ async fn get_draw_number(
         build_message::<lotto_registration_contract::ContractRef>(contract_id.clone())
             .call(|contract| contract.get_draw_number());
 
-    let draw_number = client
+    client
         .call_dry_run(&ink_e2e::alice(), &get_draw_number, 0, None)
         .await
-        .return_value();
-
-    draw_number
+        .return_value()
+        .expect("Query the draw number failed")
 }
-/*
-   async fn get_last_raffle_for_verif(
-       client: &mut ink_e2e::Client<PolkadotConfig, DefaultEnvironment>,
-       contract_id: &AccountId,
-   ) -> Option<RaffleId> {
-       // check in the kv store
-       const LAST_RAFFLE_FOR_VERIF: u32 = ink::selector_id!("LAST_RAFFLE_FOR_VERIF");
-
-       let get_value = build_message::<lotto_registration_contract::ContractRef>(contract_id.clone())
-           .call(|contract| contract.get_value(LAST_RAFFLE_FOR_VERIF.encode()));
-
-       let raffle_id = client
-           .call_dry_run(&ink_e2e::alice(), &get_value, 0, None)
-           .await
-           .return_value();
-
-       match raffle_id {
-           Some(r) => Some(
-               RaffleId::decode(&mut r.as_slice()).expect("Cannot decode Last raffle for verif"),
-           ),
-           None => None,
-       }
-   }
-*/
 
 async fn get_status(
     client: &mut ink_e2e::Client<PolkadotConfig, DefaultEnvironment>,
@@ -248,11 +221,11 @@ async fn get_status(
     let get_status = build_message::<lotto_registration_contract::ContractRef>(contract_id.clone())
         .call(|contract| contract.get_status());
 
-    let result = client
+    client
         .call_dry_run(&ink_e2e::alice(), &get_status, 0, None)
-        .await;
-
-    result.return_value()
+        .await
+        .return_value()
+        .expect("Query the status failed")
 }
 
 #[ink_e2e::test(

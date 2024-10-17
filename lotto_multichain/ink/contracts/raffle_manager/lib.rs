@@ -65,6 +65,7 @@ pub mod lotto_registration_manager_contract {
         AccessControlError(AccessControlError),
         RaffleError(RaffleError),
         RollupAnchorError(RollupAnchorError),
+        CannotBeClosedYet,
         NoResult,
         TransferError,
     }
@@ -307,7 +308,7 @@ pub mod lotto_registration_manager_contract {
             // all contracts are synchronized
             // we can close the registration in X block
             let block_number = self.env().block_number();
-            self.block_number_close_registrations = block_number.checked_add(100).ok_or(RaffleError::AddOverFlow)?;
+            self.block_number_close_registrations = block_number.checked_add(0).ok_or(RaffleError::AddOverFlow)?;
 
             Ok(())
         }
@@ -333,6 +334,10 @@ pub mod lotto_registration_manager_contract {
 
         #[ink(message)]
         pub fn close_registrations(&mut self) -> Result<(), ContractError> {
+            // check if we can close the registrations
+            if !self.can_close_registrations() {
+                return Err(ContractError::CannotBeClosedYet);
+            }
             // close the registrations in the manager
             let draw_number = RaffleManager::close_registrations(self)?;
 

@@ -1,4 +1,4 @@
-use ink::env::{debug_println, DefaultEnvironment};
+use ink::env::DefaultEnvironment;
 use ink_e2e::subxt::tx::Signer;
 use ink_e2e::{build_message, PolkadotConfig};
 use openbrush::contracts::access_control::accesscontrol_external::AccessControl;
@@ -155,7 +155,7 @@ async fn attestor_sends_all_registrations_open(
         build_message::<lotto_registration_manager_contract::ContractRef>(contract_id.clone())
             .call(|contract| contract.rollup_cond_eq(vec![], vec![], actions.clone()));
 
-    let result = client
+    let _result = client
         .call(&ink_e2e::bob(), rollup_cond_eq, 0, None)
         .await
         .expect("send config propagated failed");
@@ -306,12 +306,10 @@ async fn get_draw_number(
         build_message::<lotto_registration_manager_contract::ContractRef>(contract_id.clone())
             .call(|contract| contract.get_draw_number());
 
-    let draw_number = client
+    client
         .call_dry_run(&ink_e2e::alice(), &get_draw_number, 0, None)
         .await
-        .return_value();
-
-    draw_number
+        .return_value()
 }
 
 async fn get_manager_status(
@@ -322,11 +320,38 @@ async fn get_manager_status(
         build_message::<lotto_registration_manager_contract::ContractRef>(contract_id.clone())
             .call(|contract| contract.get_status());
 
-    let result = client
+    client
         .call_dry_run(&ink_e2e::alice(), &get_status, 0, None)
-        .await;
+        .await
+        .return_value()
+}
 
-    result.return_value()
+async fn can_close_registrations(
+    client: &mut ink_e2e::Client<PolkadotConfig, DefaultEnvironment>,
+    contract_id: &AccountId,
+) -> bool {
+    let can_close_registrations =
+        build_message::<lotto_registration_manager_contract::ContractRef>(contract_id.clone())
+            .call(|contract| contract.can_close_registrations());
+
+    client
+        .call_dry_run(&ink_e2e::alice(), &can_close_registrations, 0, None)
+        .await
+        .return_value()
+}
+
+async fn has_pending_message(
+    client: &mut ink_e2e::Client<PolkadotConfig, DefaultEnvironment>,
+    contract_id: &AccountId,
+) -> bool {
+    let has_pending_message =
+        build_message::<lotto_registration_manager_contract::ContractRef>(contract_id.clone())
+            .call(|contract| contract.has_pending_message());
+
+    client
+        .call_dry_run(&ink_e2e::alice(), &has_pending_message, 0, None)
+        .await
+        .return_value()
 }
 
 async fn get_results(
@@ -448,10 +473,20 @@ async fn test_raffles(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
         get_manager_status(&mut client, &contract_id).await
     );
 
+    // check the message queue
+    assert_eq!(
+        false,
+        has_pending_message(&mut client, &contract_id).await
+    );
+
     // start the raffle
     alice_starts_raffle(&mut client, &contract_id, 10).await;
 
     // check the message queue
+    assert_eq!(
+        true,
+        has_pending_message(&mut client, &contract_id).await
+    );
     let messages = get_messages_in_queue(&mut client, &contract_id).await;
     assert_eq!(messages.len(), 1);
     assert_eq!(
@@ -552,6 +587,10 @@ async fn test_raffles(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
 
     // all contracts are synched
     // check the messages in the queue
+    assert_eq!(
+        false,
+        has_pending_message(&mut client, &contract_id).await
+    );
     let messages = get_messages_in_queue(&mut client, &contract_id).await;
     assert_eq!(messages.len(), 0);
 
@@ -561,6 +600,10 @@ async fn test_raffles(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
     );
 
     // stop the registrations
+    assert_eq!(
+        true,
+        can_close_registrations(&mut client, &contract_id).await
+    );
     alice_close_registrations(&mut client, &contract_id).await;
     assert_eq!(
         raffle_manager::Status::RegistrationsClosed,
@@ -580,6 +623,10 @@ async fn test_raffles(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
 
     // all contracts are not synched
     // check the message in the queue
+    assert_eq!(
+        true,
+        has_pending_message(&mut client, &contract_id).await
+    );
     let messages = get_messages_in_queue(&mut client, &contract_id).await;
     assert_eq!(messages.len(), 1);
     assert_eq!(
@@ -606,9 +653,7 @@ async fn test_raffles(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
         messages[0],
         LottoManagerRequestMessage::DrawNumbers(
             draw_number,
-            config.nb_numbers,
-            config.min_number,
-            config.max_number
+            config,
         )
     );
 
