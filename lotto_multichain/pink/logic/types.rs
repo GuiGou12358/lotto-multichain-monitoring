@@ -51,7 +51,7 @@ pub struct EvmContractConfig {
     pub sender_key: Option<[u8; 32]>,
 }
 
-#[derive(scale::Encode, scale::Decode, Debug, Clone)]
+#[derive(scale::Encode, scale::Decode, Debug, Clone, Eq, PartialEq)]
 pub struct RaffleConfig {
     pub nb_numbers: u8,
     pub min_number: Number,

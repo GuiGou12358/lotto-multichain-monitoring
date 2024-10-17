@@ -399,15 +399,13 @@ mod lotto_draw_multichain {
                 }
                 LottoManagerRequestMessage::DrawNumbers(
                     draw_number,
-                    nb_numbers,
-                    smallest_number,
-                    biggest_number,
+                    ref config,
                 ) => {
                     let numbers = self.inner_get_numbers(
                         draw_number,
-                        nb_numbers,
-                        smallest_number,
-                        biggest_number,
+                        config.nb_numbers,
+                        config.min_number,
+                        config.max_number,
                     )?;
                     let hash = [0; 32]; // TODO compute hash
                     LottoManagerResponseMessage::WinningNumbers(draw_number, numbers, hash)
