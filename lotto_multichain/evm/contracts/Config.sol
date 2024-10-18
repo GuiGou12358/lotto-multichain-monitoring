@@ -7,16 +7,18 @@ contract Config {
     uint public minNumber;
     uint public maxNumber;
 
-    function _setConfig(uint8 _nbNumbers, uint _minNumber, uint _maxNumber) internal {
+    event ConfigUpdated(uint8 nbNumbers, uint minNumber, uint maxNumber);
 
+    function _setConfig(uint8 _nbNumbers, uint _minNumber, uint _maxNumber) internal {
         // check the provided config
         require(_nbNumbers > 0, "Nb Numbers must be greater than 0");
         require(_maxNumber > _minNumber, "max must be greater than min");
-
         // save the config
         nbNumbers = _nbNumbers;
         minNumber = _minNumber;
         maxNumber = _maxNumber;
+        // emit the event
+        emit ConfigUpdated(nbNumbers, minNumber, maxNumber);
     }
 
     function _ensureConfig() internal view {
