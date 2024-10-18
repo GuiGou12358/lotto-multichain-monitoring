@@ -744,67 +744,6 @@ async fn test_raffles(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
         LottoManagerRequestMessage::OpenRegistrations(draw_number, vec![101, 102, 103])
     );
 
-    /*
-           // dave participates
-           participates(
-               &mut client,
-               &contract_id,
-               &ink_e2e::dave(),
-               vec![5, 40, 8, 2],
-           )
-           .await;
-
-           participates(
-               &mut client,
-               &contract_id,
-               &ink_e2e::dave(),
-               vec![3, 6, 7, 5],
-           )
-           .await;
-
-           participates(
-               &mut client,
-               &contract_id,
-               &ink_e2e::dave(),
-               vec![12, 4, 6, 2],
-           )
-           .await;
-
-           participates(
-               &mut client,
-               &contract_id,
-               &ink_e2e::dave(),
-               vec![15, 44, 4, 1],
-           )
-           .await;
-
-           // charlie participates
-           participates(
-               &mut client,
-               &contract_id,
-               &ink_e2e::charlie(),
-               vec![50, 3, 8, 2],
-           )
-           .await;
-
-           participates(
-               &mut client,
-               &contract_id,
-               &ink_e2e::charlie(),
-               vec![34, 6, 2, 5],
-           )
-           .await;
-
-           participates(
-               &mut client,
-               &contract_id,
-               &ink_e2e::charlie(),
-               vec![12, 4, 6, 4],
-           )
-           .await;
-
-    */
-
     Ok(())
 }
 
