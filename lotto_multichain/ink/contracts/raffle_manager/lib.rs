@@ -241,6 +241,46 @@ pub mod lotto_registration_manager_contract {
             Ok(())
         }
 
+        #[ink(message)]
+        pub fn can_close_registrations(&self) -> bool {
+            // check the status of all contracts
+            if !RaffleManager::can_close_registrations(self) {
+                return false;
+            }
+
+            // check the block number
+            let block_number = self.env().block_number();
+            block_number >= self.block_number_close_registrations
+        }
+
+        #[ink(message)]
+        pub fn close_registrations(&mut self) -> Result<(), ContractError> {
+            // check if we can close the registrations
+            if !self.can_close_registrations() {
+                return Err(ContractError::CannotBeClosedYet);
+            }
+            // close the registrations in the manager
+            let draw_number = RaffleManager::close_registrations(self)?;
+
+            // emmit the event
+            self.env().emit_event(RegistrationClosed { draw_number });
+
+            // close the registrations in all contracts
+            let registration_contracts = RaffleManager::get_registration_contracts(self);
+            let message =
+                LottoManagerRequestMessage::CloseRegistrations(draw_number, registration_contracts);
+            RollupAnchor::push_message(self, &message)?;
+
+            Ok(())
+        }
+
+        #[ink(message)]
+        pub fn has_pending_message(&self) -> bool {
+            let tail = RollupAnchor::get_queue_tail(self).unwrap_or_default();
+            let head = RollupAnchor::get_queue_head(self).unwrap_or_default();
+            tail > head
+        }
+
         fn handle_started(
             &mut self,
             registration_contracts: Vec<RegistrationContractId>,
@@ -311,46 +351,6 @@ pub mod lotto_registration_manager_contract {
             self.block_number_close_registrations = block_number
                 .checked_add(0)
                 .ok_or(RaffleError::AddOverFlow)?;
-
-            Ok(())
-        }
-
-        #[ink(message)]
-        pub fn has_pending_message(&self) -> bool {
-            let tail = RollupAnchor::get_queue_tail(self).unwrap_or_default();
-            let head = RollupAnchor::get_queue_head(self).unwrap_or_default();
-            tail > head
-        }
-
-        #[ink(message)]
-        pub fn can_close_registrations(&self) -> bool {
-            // check the status of all contracts
-            if !RaffleManager::can_close_registrations(self) {
-                return false;
-            }
-
-            // check the block number
-            let block_number = self.env().block_number();
-            block_number >= self.block_number_close_registrations
-        }
-
-        #[ink(message)]
-        pub fn close_registrations(&mut self) -> Result<(), ContractError> {
-            // check if we can close the registrations
-            if !self.can_close_registrations() {
-                return Err(ContractError::CannotBeClosedYet);
-            }
-            // close the registrations in the manager
-            let draw_number = RaffleManager::close_registrations(self)?;
-
-            // emmit the event
-            self.env().emit_event(RegistrationClosed { draw_number });
-
-            // close the registrations in all contracts
-            let registration_contracts = RaffleManager::get_registration_contracts(self);
-            let message =
-                LottoManagerRequestMessage::CloseRegistrations(draw_number, registration_contracts);
-            RollupAnchor::push_message(self, &message)?;
 
             Ok(())
         }
