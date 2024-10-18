@@ -55,8 +55,9 @@ async fn attestor_set_config_and_start(
     client: &mut ink_e2e::Client<PolkadotConfig, DefaultEnvironment>,
     contract_id: &AccountId,
     config: Config,
+    registration_contract_id: RegistrationContractId,
 ) {
-    let payload = RequestForAction::SetConfigAndStart(config.clone());
+    let payload = RequestForAction::SetConfigAndStart(config.clone(), registration_contract_id);
 
     let actions = vec![HandleActionInput::Reply(payload.encode())];
     let rollup_cond_eq =
@@ -74,6 +75,12 @@ async fn attestor_set_config_and_start(
     assert_eq!(
         raffle_registration::Status::Started,
         get_status(client, contract_id).await
+    );
+
+    // check the registration contract id
+    assert_eq!(
+        registration_contract_id,
+        get_registration_contract_id(client, contract_id).await
     );
 }
 
@@ -228,6 +235,20 @@ async fn get_status(
         .expect("Query the status failed")
 }
 
+async fn get_registration_contract_id(
+    client: &mut ink_e2e::Client<PolkadotConfig, DefaultEnvironment>,
+    contract_id: &AccountId,
+) -> RegistrationContractId {
+    let get_registration_contract_id =
+        build_message::<lotto_registration_contract::ContractRef>(contract_id.clone())
+            .call(|contract| contract.get_registration_contract_id());
+
+    client
+        .call_dry_run(&ink_e2e::alice(), &get_registration_contract_id, 0, None)
+        .await
+        .return_value()
+}
+
 #[ink_e2e::test(
     additional_contracts = "contracts/raffle_registration/Cargo.toml contracts/raffle_registration/Cargo.toml"
 )]
@@ -240,6 +261,7 @@ async fn test_raffles(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
         min_number: 1,
         max_number: 50,
     };
+    let registration_contract_id = 33;
 
     // bob is granted as attestor
     alice_grants_bob_as_attestor(&mut client, &contract_id).await;
@@ -250,8 +272,14 @@ async fn test_raffles(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
         get_status(&mut client, &contract_id).await
     );
 
-    // configure the raffle
-    attestor_set_config_and_start(&mut client, &contract_id, config.clone()).await;
+    // configure the raffle and start the workflow
+    attestor_set_config_and_start(
+        &mut client,
+        &contract_id,
+        config.clone(),
+        registration_contract_id,
+    )
+    .await;
 
     // check if the user can participate
     assert_eq!(false, can_participate(&mut client, &contract_id).await);
@@ -401,7 +429,7 @@ async fn test_raffles(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
     // Close the registrations
     attestor_close_registrations(&mut client, &contract_id, 11).await;
 
-    // Set the results
+    // Set the results with a winner
     let numbers = vec![12, 4, 6, 4];
     let charlie_address = ink::primitives::AccountId::from(ink_e2e::charlie().public_key().0);
     let winners = vec![charlie_address];

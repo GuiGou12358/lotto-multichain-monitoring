@@ -15,8 +15,6 @@ pub mod lotto_registration_contract {
         meta_transaction, meta_transaction::*, rollup_anchor, rollup_anchor::*,
     };
 
-    const LOTTO_MANAGER_ROLE: RoleType = ink::selector_id!("LOTTO_MANAGER");
-
     /// Event emitted when the config is received
     #[ink(event)]
     pub struct ConfigUpdated {
@@ -109,9 +107,13 @@ pub mod lotto_registration_contract {
     /// Message sent by the offchain rollup to the Ink! smart contract
     #[derive(scale::Encode, scale::Decode)]
     pub enum RequestForAction {
-        SetConfigAndStart(Config),
+        /// update the config, set the registration contract id for this contract and start the workflow
+        SetConfigAndStart(Config, RegistrationContractId),
+        /// open the registrations for the given draw number
         OpenRegistrations(DrawNumber),
+        /// close the registrations for the given draw number
         CloseRegistrations(DrawNumber),
+        /// set the results (winning numbers and winner addresses) for the given draw number
         SetResults(DrawNumber, Vec<Number>, Vec<AccountId>),
     }
 
@@ -182,41 +184,37 @@ pub mod lotto_registration_contract {
             Ok(())
         }
 
-        // TODO remove it
         #[ink(message)]
-        #[openbrush::modifiers(access_control::only_role(LOTTO_MANAGER_ROLE))]
-        pub fn set_config_and_start(&mut self, config: Config) -> Result<(), ContractError> {
-            self.inner_set_config_and_start(config)
+        pub fn get_registration_contract_id(&self) -> RegistrationContractId {
+            self.registration_contract_id
         }
 
-        fn inner_set_config_and_start(&mut self, config: Config) -> Result<(), ContractError> {
+        fn inner_set_config_and_start(
+            &mut self,
+            config: Config,
+            registration_contract_id: RegistrationContractId,
+        ) -> Result<(), ContractError> {
             // check the status, we can set the config only when the raffle is not started yet
             let status = Raffle::get_status(self)?;
             if status != Status::NotStarted {
                 return Err(ContractError::RaffleError(RaffleError::IncorrectStatus));
             }
+            // set the registration contract id
+            self.registration_contract_id = registration_contract_id;
 
             // update the config
             RaffleConfig::set_config(self, config)?;
 
             // emit the event
-            let registration_contract_id = self.registration_contract_id;
             self.env().emit_event(ConfigUpdated {
                 registration_contract_id,
                 config,
             });
 
-            // start the raffle
+            // start the workflow
             Raffle::start(self)?;
 
             Ok(())
-        }
-
-        // TODO remove it
-        #[ink(message)]
-        #[openbrush::modifiers(access_control::only_role(LOTTO_MANAGER_ROLE))]
-        pub fn open_registrations(&mut self, draw_number: DrawNumber) -> Result<(), ContractError> {
-            self.inner_open_registrations(draw_number)
         }
 
         fn inner_open_registrations(
@@ -234,16 +232,6 @@ pub mod lotto_registration_contract {
             });
 
             Ok(())
-        }
-
-        // TODO remove it
-        #[ink(message)]
-        #[openbrush::modifiers(access_control::only_role(LOTTO_MANAGER_ROLE))]
-        pub fn close_registrations(
-            &mut self,
-            draw_number: DrawNumber,
-        ) -> Result<(), ContractError> {
-            self.inner_close_registrations(draw_number)
         }
 
         fn inner_close_registrations(
@@ -303,11 +291,6 @@ pub mod lotto_registration_contract {
         }
 
         #[ink(message)]
-        pub fn get_manager_role(&self) -> RoleType {
-            LOTTO_MANAGER_ROLE
-        }
-
-        #[ink(message)]
         #[modifiers(only_role(DEFAULT_ADMIN_ROLE))]
         pub fn terminate_me(&mut self) -> Result<(), ContractError> {
             self.env().terminate_contract(self.env().caller());
@@ -331,8 +314,8 @@ pub mod lotto_registration_contract {
                 .or(Err(RollupAnchorError::FailedToDecode))?;
 
             match request {
-                RequestForAction::SetConfigAndStart(config) => {
-                    self.inner_set_config_and_start(config)?;
+                RequestForAction::SetConfigAndStart(config, registration_contract_id) => {
+                    self.inner_set_config_and_start(config, registration_contract_id)?;
                 }
                 RequestForAction::OpenRegistrations(draw_number) => {
                     self.inner_open_registrations(draw_number)?;

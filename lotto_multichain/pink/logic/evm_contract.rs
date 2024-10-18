@@ -93,15 +93,17 @@ fn encode_request(request: &RequestForAction) -> Result<Vec<u8>, RaffleDrawError
     const REQUEST_SET_RESULTS: u8 = 3;
 
     let encoded = match &request {
-        RequestForAction::SetConfig(config) => {
+        RequestForAction::SetConfigAndStart(config, contract_id) => {
             let nb_numbers = config.nb_numbers as u128;
             let min_number = config.min_number as u128;
             let max_number = config.max_number as u128;
+            let contract_id = *contract_id as u128;
             ethabi::encode(&[
                 Token::Uint(REQUEST_SET_CONFIG.into()),
                 Token::Uint(nb_numbers.into()),
                 Token::Uint(min_number.into()),
                 Token::Uint(max_number.into()),
+                Token::Uint(contract_id.into()),
             ])
         }
         RequestForAction::CloseRegistrations(draw_number) => {

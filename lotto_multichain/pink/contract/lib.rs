@@ -373,7 +373,7 @@ mod lotto_draw_multichain {
             let response = match message {
                 LottoManagerRequestMessage::PropagateConfig(config, ref contract_ids) => {
                     let synchronized_contracts =
-                        self.inner_do_action(RequestForAction::SetConfig(config), contract_ids)?;
+                        self.inner_do_action(RequestForAction::SetConfigAndStart(config, 0), contract_ids)?;
                     let hash = [0; 32]; // TODO compute hash
                     LottoManagerResponseMessage::ConfigPropagated(synchronized_contracts, hash)
                 }
@@ -454,7 +454,7 @@ mod lotto_draw_multichain {
 
             // get the status and draw number matching with this action
             let (target_draw_number, target_status) = match request {
-                RequestForAction::SetConfig(_) => (None, Some(RaffleRegistrationStatus::Started)),
+                RequestForAction::SetConfigAndStart(_, _) => (None, Some(RaffleRegistrationStatus::Started)),
                 RequestForAction::OpenRegistrations(draw_number) => {
                     (Some(draw_number), Some(RaffleRegistrationStatus::RegistrationOpen))
                 }
@@ -480,6 +480,12 @@ mod lotto_draw_multichain {
                     }
                     ContractConfig::Evm(config) => EvmContract::new(Some(config)).map(Box::new)?,
                 };
+                // for the action SetConfigAndStart, we have to override the registration contract id
+                let request = match &request {
+                    RequestForAction::SetConfigAndStart(config, _) => &RequestForAction::SetConfigAndStart(config.clone(), *contract_id),
+                    _ => &request,
+                };
+
                 // check the status and draw number and do the action is the contract is not synchronized
                 if contract.do_action(target_draw_number, target_status, request.clone(), &self.attest_key)? {
                     // the contract is synchronized
