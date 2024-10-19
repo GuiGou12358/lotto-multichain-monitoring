@@ -24,7 +24,7 @@ describe('Test raffle life cycle', () => {
   }
 
   it('configure and start the raffle', async () => {
-    const {lottoInstance, owner, attestor, addr1, addr2} = await loadFixture(deployContractFixture);
+    const {lottoInstance, owner} = await loadFixture(deployContractFixture);
 
     expect (await lottoInstance.nbNumbers()).to.equal(0);
     expect (await lottoInstance.minNumber()).to.equal(0);
@@ -69,7 +69,7 @@ describe('Test raffle life cycle', () => {
   });
 
   it('should not be able to participate', async () => {
-    const {lottoInstance, owner, attestor, addr1, addr2} = await loadFixture(startRaffleFixture);
+    const {lottoInstance} = await loadFixture(startRaffleFixture);
     await expect(lottoInstance.participate([1, 2, 3, 4, 5])).to.be.revertedWith('Incorrect nb numbers');
     await expect(lottoInstance.participate([1, 2, 3])).to.be.revertedWith('Incorrect nb numbers');
     await expect(lottoInstance.participate([0, 2, 3, 5])).to.be.revertedWith('Number too low');
@@ -78,7 +78,7 @@ describe('Test raffle life cycle', () => {
 
 
   it('Complete the raffle, submit the results', async () => {
-    const {lottoInstance, owner, attestor, addr1, addr2} = await loadFixture(startRaffleFixture);
+    const {lottoInstance, owner, attestor} = await loadFixture(startRaffleFixture);
 
     // check before
     expect(await lottoInstance.status()).to.equal(STATUS_ONGOING);
@@ -121,7 +121,7 @@ describe('Test raffle life cycle', () => {
 
 
   it('Attestor submits no winner', async () => {
-    const {lottoInstance, owner, attestor, addr1, addr2} = await loadFixture(waitingWinnersFixture);
+    const {lottoInstance, attestor} = await loadFixture(waitingWinnersFixture);
 
     // checks before
     expect(await lottoInstance.status()).to.equal(STATUS_WAITING_WINNERS);
@@ -140,7 +140,7 @@ describe('Test raffle life cycle', () => {
   });
 
   it('Attestor submits 1 winner', async () => {
-    const {lottoInstance, owner, attestor, addr1, addr2} = await loadFixture(waitingWinnersFixture);
+    const {lottoInstance, attestor, addr1} = await loadFixture(waitingWinnersFixture);
 
     // checks before
     expect(await lottoInstance.status()).to.equal(STATUS_WAITING_WINNERS);
@@ -160,7 +160,7 @@ describe('Test raffle life cycle', () => {
 
 
   it('should not start the raffle (unauthorized)', async () => {
-    const {lottoInstance, owner, attestor, addr1, addr2} = await loadFixture(deployContractFixture);
+    const {lottoInstance, attestor, addr1} = await loadFixture(deployContractFixture);
     await expect(lottoInstance.connect(attestor).startRaffle()).to.be.reverted; //With('Custom error (could not decode)');
     await expect(lottoInstance.connect(addr1).startRaffle()).to.be.reverted; //With('Custom error (could not decode)');
   });
