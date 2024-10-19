@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import "hardhat/console.sol";
+
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 
@@ -34,6 +36,8 @@ contract RaffleRegistration is Config, Ownable, AccessControl, PhatRollupAnchor 
 		Ownable(_address)
 	{
 		_grantRole(DEFAULT_ADMIN_ROLE, _address);
+		_setStatus(Status.NotStarted);
+		_setDrawNumber(0);
 	}
 
 	function _start(uint _registrationContractId) private {
@@ -134,7 +138,25 @@ contract RaffleRegistration is Config, Ownable, AccessControl, PhatRollupAnchor 
 
 	function _onMessageReceived(bytes calldata _action) internal override {
 
+/*
+		(uint r1, bytes memory _request1) = abi.decode(RequestType, (uint, bytes));
+		console.log("---------- r1  %s", r1);
+		console.log("---------- _request1  %s", _request1.length);
+		(uint8 r2, bytes memory _request2) = abi.decode(_action, (uint8, bytes));
+		console.log("---------- r2  %s", r2);
+		console.log("---------- _request2  %s", _request2.length);
+
+		uint8 v1 =  uint8(_action[0]);
+		(uint v2) = abi.decode(_action, (uint));
+		//uint v2 =  uint(_action[0:31]);
+
+		console.log("---------- v1  %s", v1);
+		console.log("---------- v2  %s", v1);
+		*/
+
+		//RequestType _requestType = RequestType(v1);
 		(RequestType _requestType, bytes memory _request) = abi.decode(_action, (RequestType, bytes));
+		//(RequestType _requestType) = abi.decode(_action[0], (RequestType));
 
 		require(
 			_requestType == RequestType.SET_CONFIG_AND_START
@@ -144,20 +166,25 @@ contract RaffleRegistration is Config, Ownable, AccessControl, PhatRollupAnchor 
 		"cannot parse action");
 
 		if (_requestType == RequestType.SET_CONFIG_AND_START){
+			console.log("---------- _onMessageReceived  SET_CONFIG_AND_START");
 			(uint8 _nbNumbers, uint _minNumber, uint _maxNumber, uint _registrationContractId) = abi.decode(_request, (uint8, uint, uint, uint));
 			// save the config
 			_setConfig(_nbNumbers, _minNumber, _maxNumber);
 			// start the workflow
 			_start(_registrationContractId);
 		} else if (_requestType == RequestType.OPEN_REGISTRATIONS){
+
+			console.log("---------- _onMessageReceived  OPEN_REGISTRATIONS");
 			(uint _draw_number) = abi.decode(_request, (uint));
 			// open the registrations
 			_open_registrations(_draw_number);
 		} else if (_requestType == RequestType.CLOSE_REGISTRATIONS){
+			console.log("---------- _onMessageReceived  CLOSE_REGISTRATIONS");
 			(uint _draw_number) = abi.decode(_request, (uint));
 			// close the registrations
 			_close_registrations(_draw_number);
 		} else if (_requestType == RequestType.SET_RESULTS){
+			console.log("---------- _onMessageReceived  SET_RESULTS");
 			(uint _draw_number, uint[] memory _numbers, address[] memory _winners) = abi.decode(_request, (uint, uint[], address[]));
 			// check if the numbers satisfies the config
 			_checkNumbers(_numbers);
