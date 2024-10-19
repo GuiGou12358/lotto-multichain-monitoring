@@ -46,6 +46,8 @@ describe('Test raffle life cycle', () => {
     expect (await contract.getDrawNumber()).to.equal(0);
     expect (await contract.can_participate()).to.equal(false);
 
+    console.log("setConfigAndStart");
+
     const request_bytes = abiCoder.encode(
         ['uint8', 'uint', 'uint', 'uint'],
         [nbNumber, min, max, registrationContractId]
@@ -56,7 +58,6 @@ describe('Test raffle life cycle', () => {
     );
     const reply = '0x00' + action.substring(2);
 
-    console.log("setConfigAndStart");
     console.log("reply %s", reply);
     await expect(contract.connect(attestor).rollupU256CondEq([], [], [], [], [reply])).not.to.be.reverted;
 
@@ -80,9 +81,7 @@ describe('Test raffle life cycle', () => {
 
     expect (await contract.can_participate()).to.equal(false);
 
-    //const action = abiCoder.encode(['uint', 'uint'], [RequestType.OPEN_REGISTRATIONS, drawNumber]);
-    //const action = abiCoder.encode(['uint', 'uint'], [1, drawNumber]);
-    //const reply = '0x00' + action.substring(2);
+    console.log("openRegistrations");
 
     const request_bytes = abiCoder.encode(
         ['uint'],
@@ -94,9 +93,7 @@ describe('Test raffle life cycle', () => {
     );
     const reply = '0x00' + action.substring(2);
 
-    console.log("openRegistrations");
     console.log("reply %s", reply);
-
     await expect(contract.connect(attestor).rollupU256CondEq([], [], [], [], [reply])).not.to.be.reverted;
 
     // check post conditions
@@ -117,6 +114,8 @@ describe('Test raffle life cycle', () => {
     expect (await contract.getDrawNumber()).to.equal(drawNumber);
     expect (await contract.can_participate()).to.equal(true);
 
+    console.log("closeRegistrations");
+
     const request_bytes = abiCoder.encode(
         ['uint'],
         [drawNumber]
@@ -127,7 +126,6 @@ describe('Test raffle life cycle', () => {
     );
     const reply = '0x00' + action.substring(2);
 
-    console.log("closeRegistrations");
     console.log("reply %s", reply);
 
     await expect(contract.connect(attestor).rollupU256CondEq([], [], [], [], [reply])).not.to.be.reverted;
@@ -152,14 +150,7 @@ describe('Test raffle life cycle', () => {
     expect (await contract.getDrawNumber()).to.equal(drawNumber);
     expect (await contract.can_participate()).to.equal(false);
 
-    /*
-    const action = abiCoder.encode(
-        ['uint8', 'uint', 'uint[]', 'address[]'],
-        [RequestType.SET_RESULTS, drawNumber, numbers, winners]
-    );
-    const reply = '0x00' + action.substring(2);
-     */
-
+    console.log("setResults");
 
     const request_bytes = abiCoder.encode(
         ['uint', 'uint[]', 'address[]'],
@@ -171,10 +162,7 @@ describe('Test raffle life cycle', () => {
     );
     const reply = '0x00' + action.substring(2);
 
-    console.log("closeRegistrations");
     console.log("reply %s", reply);
-
-
     await expect(contract.connect(attestor).rollupU256CondEq([], [], [], [], [reply])).not.to.be.reverted;
 
     // check post conditions
