@@ -39,53 +39,30 @@ import "./MetaTransaction.sol";
 /// the raw data provided by the Phat Contract. Usually it's encoded meaningful data in some
 /// predefined schema (e.g. `abi.encode()`).
 ///
-/// Call `_pushMessage(data)` to push the raw message to the Phat Contract. It returns the request
-/// id, which can be used to link the response to the request later.
 ///
-/// ## Phat Contract Usage
-///
-/// On the Phat Contract side, when some requests are processed, it should send an action
-/// `ACTION_SET_QUEUE_HEAD` to removed the finished requests.
-///
-/// ## Storage layout
-///
-/// - `<lockKey>`: `uint` - the version of the queue lock
-/// - `<prefix>/_head`: `uint` - index of the first element
-/// - `<prefix>/_tail`: `uint` - index of the next element to push to the queue
-/// - `<prefix/<n>`: `bytes` - the `n`-th message; `n` is encoded as uint32
 abstract contract PhatRollupAnchor is ReentrancyGuard, MetaTxReceiver, AccessControl {
-    // Constants aligned with the Phat Contract rollup queue implementation.
-    bytes constant QUEUE_PREFIX = "q/";
-    bytes constant KEY_HEAD = "_head";
-    bytes constant KEY_TAIL = "_tail";
 
     // Only submission from attestor is allowed.
     bytes32 public constant ATTESTOR_ROLE = keccak256("ATTESTOR_ROLE");
 
     event MetaTxDecoded();
-    event MessageQueued(uint256 idx, bytes data);
     event MessageProcessedTo(uint256);
 
     error BadAttestor();
     error BadCondLen(uint kenLen, uint valueLen);
     error BadUpdateLen(uint kenLen, uint valueLen);
     error CondNotMet(bytes cond, uint32 expected, uint32 actual);
-    error CannotDecodeAction(uint8 actionId);
     error UnsupportedAction(uint8 actionId);
     error Internal_toUint32Strict_outOfBounds(bytes data);
-    error InvalidPopTarget(uint256 targetIdx, uint256 tailIdx);
 
     uint8 constant ACTION_REPLY = 0;
-    uint8 constant ACTION_SET_QUEUE_HEAD = 1;
-    uint8 constant ACTION_GRANT_ATTESTOR = 10;
-    uint8 constant ACTION_REVOKE_ATTESTOR = 11;
 
     mapping (bytes => bytes) kvStore;
 
-    /// Triggers a rollup transaction with `eq` conditoin check on uint256 values
+    /// Triggers a rollup transaction with `eq` condition check on uint256 values
     ///
     /// - actions: Starts with one byte to define the action type and followed by the parameter of
-    ///     the actions. Supported actions: ACTION_REPLY, ACTION_SET_QUEUE_HEAD
+    ///     the actions. Supported actions: ACTION_REPLY
     ///
     /// Note that calling from `address(this)` is allowed to make parameters a calldata. Don't
     /// abuse it.
@@ -169,24 +146,6 @@ abstract contract PhatRollupAnchor is ReentrancyGuard, MetaTxReceiver, AccessCon
         uint8 actionType = uint8(action[0]);
         if (actionType == ACTION_REPLY) {
             _onMessageReceived(action[1:]);
-        } else if (actionType == ACTION_SET_QUEUE_HEAD) {
-            if (action.length < 1 + 32) {
-                revert CannotDecodeAction(ACTION_SET_QUEUE_HEAD);
-            }
-            uint32 targetIdx = abi.decode(action[1:], (uint32));
-            _popTo(targetIdx);
-        } else if (actionType == ACTION_GRANT_ATTESTOR) {
-            if (action.length < 1 + 20) {
-                revert CannotDecodeAction(ACTION_GRANT_ATTESTOR);
-            }
-            address attestor = abi.decode(action[1:], (address));
-            _grantRole(ATTESTOR_ROLE, attestor);
-        } else if (actionType == ACTION_REVOKE_ATTESTOR) {
-            if (action.length < 1 + 20) {
-                revert CannotDecodeAction(ACTION_REVOKE_ATTESTOR);
-            }
-            address attestor = abi.decode(action[1:], (address));
-            _revokeRole(ATTESTOR_ROLE, attestor);
         } else {
             revert UnsupportedAction(actionType);
         }
@@ -207,73 +166,9 @@ abstract contract PhatRollupAnchor is ReentrancyGuard, MetaTxReceiver, AccessCon
         return v;
     }
 
-    // Queue functions
-
-    /// Pushes a request to the queue waiting for the Phat Contract to process
-    ///
-    /// Returns the index of the reqeust.
-    function _pushMessage(bytes memory data) internal returns (uint32) {
-        uint32 tail = queueGetUint(KEY_TAIL);
-        bytes memory itemKey = abi.encode(tail);
-        queueSetBytes(itemKey, data);
-        queueSetUint(KEY_TAIL, tail + 1);
-        emit MessageQueued(tail, data);
-        return tail;
-    }
-
-    function _popTo(uint32 targetIdx) internal {
-        uint32 curTail = queueGetUint(KEY_TAIL);
-        if (targetIdx > curTail) {
-            revert InvalidPopTarget(targetIdx, curTail);
-        }
-        for (uint32 i = queueGetUint(KEY_HEAD); i < targetIdx; i++) {
-            queueRemoveItem(i);
-        }
-        queueSetUint(KEY_HEAD, targetIdx);
-        emit MessageProcessedTo(targetIdx);
-    }
-
     /// The handler to be called when a message is received from a Phat Contract
     ///
     /// Reverting in this function resulting the revert of the offchain rollup transaction.
     function _onMessageReceived(bytes calldata action) internal virtual;
 
-    /// Returns the prefix of the queue related keys
-    ///
-    /// The queue is persisted in the rollup kv store with all its keys prefixed. This function
-    /// returns the prefix.
-    function queueGetPrefix() public pure returns (bytes memory) {
-        return QUEUE_PREFIX;
-    }
-
-    /// Returns the raw bytes value stored in the queue kv store
-    function queueGetBytes(bytes memory key) public view returns (bytes memory) {
-        bytes memory storageKey = bytes.concat(QUEUE_PREFIX, key);
-        return kvStore[storageKey];
-    }
-
-    /// Returns the uint32 repr of the data stored in the queue kv store
-    function queueGetUint(bytes memory key) public view returns (uint32) {
-        bytes memory storageKey = bytes.concat(QUEUE_PREFIX, key);
-        return toUint32Strict(kvStore[storageKey]);
-    }
-
-    /// Stores a raw bytes value to the queue kv store
-    function queueSetBytes(bytes memory key, bytes memory value) internal {
-        bytes memory storageKey = bytes.concat(QUEUE_PREFIX, key);
-        kvStore[storageKey] = value;
-    }
-
-    /// Stores a uint32 value to the queue kv store
-    function queueSetUint(bytes memory key, uint32 value) internal {
-        bytes memory storageKey = bytes.concat(QUEUE_PREFIX, key);
-        kvStore[storageKey] = abi.encode(value);
-    }
-
-    /// Removes a queue item
-    function queueRemoveItem(uint32 idx) internal {
-        bytes memory key = abi.encode(idx);
-        bytes memory storageKey = bytes.concat(QUEUE_PREFIX, key);
-        delete kvStore[storageKey];
-    }
 }
