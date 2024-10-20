@@ -25,13 +25,6 @@ contract Config {
         require(nbNumbers > 0, "Config not set");
     }
 
-    function _ensureSameConfig(uint8 _nbNumbers, uint _minNumber, uint _maxNumber) internal view {
-        _ensureConfig();
-        require(nbNumbers == _nbNumbers, "Different nb numbers");
-        require(minNumber == _minNumber, "Different min number");
-        require(maxNumber == _maxNumber, "Different max number");
-    }
-
     function _checkNumbers(uint[] memory _numbers) internal view {
         // check the config is set
         _ensureConfig();
