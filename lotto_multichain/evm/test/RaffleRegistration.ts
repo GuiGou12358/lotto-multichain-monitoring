@@ -251,6 +251,46 @@ describe('Test raffle life cycle', () => {
 
   });
 
+  it('Attestor submits wrong results', async () => {
+    const {contract, attestor, addr1} = await loadFixture(openRegistrationsFixture);
+
+    // close the registrations for the draw number 11
+    await closeRegistrations(contract, attestor, 11);
+
+    // send the results : winning numbers are incorrect (too many numbers)
+    await setResultsMustBeReverted(contract, attestor, 11, [33, 47, 5, 6, 40], [addr1.address]);
+    // send the results : winning numbers are incorrect (not enough numbers)
+    await setResultsMustBeReverted(contract, attestor, 11, [33, 47, 5], [addr1.address]);
+    // send the results : winning numbers are incorrect (out of range)
+    await setResultsMustBeReverted(contract, attestor, 11, [0, 47, 5, 8], [addr1.address]);
+    // send the results : winning numbers are incorrect (out of range)
+    await setResultsMustBeReverted(contract, attestor, 11, [1, 47, 51, 8], [addr1.address]);
+
+  });
+
+  async function setResultsMustBeReverted(
+      contract: RaffleRegistration,
+      attestor : Signer,
+      drawNumber: number,
+      numbers: number[],
+      winners: string[]
+  ) {
+
+    const request_bytes = abiCoder.encode(
+        ['uint', 'uint[]', 'address[]'],
+        [drawNumber, numbers, winners]
+    );
+    const action = abiCoder.encode(
+        ['uint', 'bytes'],
+        [RequestType.SET_RESULTS, request_bytes]
+    );
+    const reply = '0x00' + action.substring(2);
+
+    console.log("reply %s", reply);
+    await expect(contract.connect(attestor).rollupU256CondEq([], [], [], [], [reply])).to.be.reverted;
+  }
+
+
 
   it('should not config and start the raffle (unauthorized)', async () => {
     const {contract, owner, addr1} = await loadFixture(deployContractFixture);
