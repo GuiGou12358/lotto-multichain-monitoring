@@ -372,8 +372,10 @@ mod lotto_draw_multichain {
         ) -> Result<LottoManagerResponseMessage> {
             let response = match message {
                 LottoManagerRequestMessage::PropagateConfig(config, ref contract_ids) => {
-                    let synchronized_contracts =
-                        self.inner_do_action(RequestForAction::SetConfigAndStart(config, 0), contract_ids)?;
+                    let synchronized_contracts = self.inner_do_action(
+                        RequestForAction::SetConfigAndStart(config, 0),
+                        contract_ids,
+                    )?;
                     let hash = [0; 32]; // TODO compute hash
                     LottoManagerResponseMessage::ConfigPropagated(synchronized_contracts, hash)
                 }
@@ -397,10 +399,7 @@ mod lotto_draw_multichain {
                         synchronized_contracts,
                     )
                 }
-                LottoManagerRequestMessage::DrawNumbers(
-                    draw_number,
-                    ref config,
-                ) => {
+                LottoManagerRequestMessage::DrawNumbers(draw_number, ref config) => {
                     let numbers = self.inner_get_numbers(
                         draw_number,
                         config.nb_numbers,
@@ -430,7 +429,11 @@ mod lotto_draw_multichain {
                     ref contract_ids,
                 ) => {
                     let synchronized_contracts = self.inner_do_action(
-                        RequestForAction::SetResults(draw_number, numbers.to_vec(), winners.to_vec()),
+                        RequestForAction::SetResults(
+                            draw_number,
+                            numbers.to_vec(),
+                            winners.to_vec(),
+                        ),
                         contract_ids,
                     )?;
                     let hash = [0; 32]; // TODO compute hash
@@ -454,16 +457,21 @@ mod lotto_draw_multichain {
 
             // get the status and draw number matching with this action
             let (target_draw_number, target_status) = match request {
-                RequestForAction::SetConfigAndStart(_, _) => (None, Some(RaffleRegistrationStatus::Started)),
-                RequestForAction::OpenRegistrations(draw_number) => {
-                    (Some(draw_number), Some(RaffleRegistrationStatus::RegistrationOpen))
+                RequestForAction::SetConfigAndStart(_, _) => {
+                    (None, Some(RaffleRegistrationStatus::Started))
                 }
-                RequestForAction::CloseRegistrations(draw_number) => {
-                    (Some(draw_number), Some(RaffleRegistrationStatus::RegistrationClosed))
-                }
-                RequestForAction::SetResults(draw_number, _, _) => {
-                    (Some(draw_number), Some(RaffleRegistrationStatus::ResultsReceived))
-                }
+                RequestForAction::OpenRegistrations(draw_number) => (
+                    Some(draw_number),
+                    Some(RaffleRegistrationStatus::RegistrationOpen),
+                ),
+                RequestForAction::CloseRegistrations(draw_number) => (
+                    Some(draw_number),
+                    Some(RaffleRegistrationStatus::RegistrationClosed),
+                ),
+                RequestForAction::SetResults(draw_number, _, _) => (
+                    Some(draw_number),
+                    Some(RaffleRegistrationStatus::ResultsReceived),
+                ),
             };
 
             // iterate on contract_ids
@@ -482,12 +490,19 @@ mod lotto_draw_multichain {
                 };
                 // for the action SetConfigAndStart, we have to override the registration contract id
                 let request = match &request {
-                    RequestForAction::SetConfigAndStart(config, _) => &RequestForAction::SetConfigAndStart(config.clone(), *contract_id),
+                    RequestForAction::SetConfigAndStart(config, _) => {
+                        &RequestForAction::SetConfigAndStart(config.clone(), *contract_id)
+                    }
                     _ => &request,
                 };
 
                 // check the status and draw number and do the action is the contract is not synchronized
-                if contract.do_action(target_draw_number, target_status, request.clone(), &self.attest_key)? {
+                if contract.do_action(
+                    target_draw_number,
+                    target_status,
+                    request.clone(),
+                    &self.attest_key,
+                )? {
                     // the contract is synchronized
                     synchronized_contracts.push(*contract_id);
                 }
@@ -641,18 +656,20 @@ mod lotto_draw_multichain {
             let rpc = get_env("RPC").unwrap();
             let pallet_id: u8 = get_env("PALLET_ID").unwrap().parse().expect("u8 expected");
             let call_id: u8 = get_env("CALL_ID").unwrap().parse().expect("u8 expected");
-            let manager_contract_id: WasmContractId = hex::decode(get_env("MANAGER_CONTRACT_ID").unwrap())
-                .expect("hex decode failed")
-                .try_into()
-                .expect("incorrect length");
-            let lotto_contract_id: WasmContractId = hex::decode(get_env("LOTTO_CONTRACT_ID").unwrap())
-                .expect("hex decode failed")
-                .try_into()
-                .expect("incorrect length");
-            let attest_key = get_env("ATTEST_KEY")
-                .map(|s| hex::decode(s).expect("hex decode failed"));
-            let sender_key = get_env("SENDER_KEY")
-                .map(|s| hex::decode(s).expect("hex decode failed"));
+            let manager_contract_id: WasmContractId =
+                hex::decode(get_env("MANAGER_CONTRACT_ID").unwrap())
+                    .expect("hex decode failed")
+                    .try_into()
+                    .expect("incorrect length");
+            let lotto_contract_id: WasmContractId =
+                hex::decode(get_env("LOTTO_CONTRACT_ID").unwrap())
+                    .expect("hex decode failed")
+                    .try_into()
+                    .expect("incorrect length");
+            let attest_key =
+                get_env("ATTEST_KEY").map(|s| hex::decode(s).expect("hex decode failed"));
+            let sender_key =
+                get_env("SENDER_KEY").map(|s| hex::decode(s).expect("hex decode failed"));
 
             EnvVars {
                 rpc: rpc.to_string(),
@@ -683,18 +700,30 @@ mod lotto_draw_multichain {
             };
 
             let manager_config = WasmContractConfig {
-                rpc: rpc.clone(), pallet_id, call_id, contract_id: manager_contract_id.into(), sender_key : sender_key.clone()
+                rpc: rpc.clone(),
+                pallet_id,
+                call_id,
+                contract_id: manager_contract_id.into(),
+                sender_key: sender_key.clone(),
             };
 
             let registration_contract_config_10 = WasmContractConfig {
-                rpc, pallet_id, call_id, contract_id: lotto_contract_id.into(), sender_key
+                rpc,
+                pallet_id,
+                call_id,
+                contract_id: lotto_contract_id.into(),
+                sender_key,
             };
 
             lotto
                 .set_config_raffle_manager(Some(ContractConfig::Wasm(manager_config)))
                 .unwrap();
 
-            lotto.set_config_raffle_registrations(100, Some(ContractConfig::Wasm(registration_contract_config_10)))
+            lotto
+                .set_config_raffle_registrations(
+                    100,
+                    Some(ContractConfig::Wasm(registration_contract_config_10)),
+                )
                 .unwrap();
 
             if let Some(attest_key) = attest_key {
@@ -704,7 +733,6 @@ mod lotto_draw_multichain {
             lotto
                 .config_indexer("https://query.substrate.fi/lotto-subquery-shibuya".to_string())
                 .unwrap();
-
 
             lotto
         }
