@@ -67,7 +67,10 @@ impl Draw {
         let mut numbers = Vec::new();
         let mut i: u8 = 0;
 
-        let salt = SaltVrf { draw_number, hashes };
+        let salt = SaltVrf {
+            draw_number,
+            hashes,
+        };
 
         let encoded_salt = scale::Encode::encode(&salt);
         let mut salt_hash = <hash::Blake2x256 as hash::HashOutput>::Type::default();

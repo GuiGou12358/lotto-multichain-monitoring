@@ -2,20 +2,15 @@ extern crate alloc;
 
 use crate::error::RaffleDrawError::{self, *};
 use crate::types::*;
-//use alloc::boxed::Box;
 use alloc::vec::Vec;
 use phat_offchain_rollup::clients::ink::{Action, InkRollupClient};
 use scale::Encode;
 
-use pink_extension::ResultExt;
-//use pink_web3::keys::pink::KeyPair;
-use crate::raffle_manager_contract::{
-    LottoManagerRequestMessage, LottoManagerResponseMessage, RaffleManagerContract,
-    RaffleManagerStatus,
-};
+use crate::raffle_manager_contract::{LottoManagerRequestMessage, LottoManagerResponseMessage};
 use crate::raffle_registration_contract::{
     RaffleRegistrationContract, RaffleRegistrationStatus, RequestForAction,
 };
+use pink_extension::ResultExt;
 
 pub struct WasmContract {
     config: WasmContractConfig,
@@ -75,7 +70,6 @@ impl WasmContract {
 }
 
 impl RaffleRegistrationContract for WasmContract {
-
     fn do_action(
         &self,
         target_draw_number: Option<DrawNumber>,
@@ -104,7 +98,6 @@ impl RaffleRegistrationContract for WasmContract {
             return Ok(true);
         }
 
-
         let encoded_reply = scale::Encode::encode(&action);
         ink::env::debug_println!("Do action - Encoded Reply : {encoded_reply:02x?}");
         ink::env::debug_println!("with attest_key : {attest_key:02x?}");
@@ -121,36 +114,10 @@ impl RaffleRegistrationContract for WasmContract {
     }
 }
 
-impl RaffleManagerContract for WasmContract {
-    fn get_raffle_manager_status(&self) -> Option<RaffleManagerStatus> {
-        // use kv store
-        None // TODO
-    }
-/*
-    fn get_request(&self) -> Result<Option<LottoManagerRequestMessage>, RaffleDrawError> {
-        self.pop()?
-    }
-
-    fn send_response(
-        &mut self,
-        response: LottoManagerResponseMessage,
-        attest_key: &[u8],
-    ) -> Result<Option<Vec<u8>>, RaffleDrawError> {
-        // Attach an action to the tx by:
-        self.action(Action::Reply(response.encode()));
-
-        Self::maybe_submit_tx(self, attest_key, self.config.sender_key.as_ref())?
-    }
-
- */
-}
-
 const DRAW_NUMBER: u32 = ink::selector_id!("DRAW_NUMBER");
 const STATUS: u32 = ink::selector_id!("STATUS");
 
-fn get_draw_number(
-    client: &mut InkRollupClient,
-) -> Result<Option<DrawNumber>, RaffleDrawError> {
+fn get_draw_number(client: &mut InkRollupClient) -> Result<Option<DrawNumber>, RaffleDrawError> {
     client
         .get(&DRAW_NUMBER)
         .log_err("Draw number unknown in kv store")
@@ -168,7 +135,6 @@ fn get_status(
         .map_err(|_| StatusUnknown)
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -180,21 +146,23 @@ mod tests {
         let _ = env_logger::try_init();
         pink_extension_runtime::mock_ext::mock_all_ext();
 
-        //Request received for raffle 6 - draw 4 numbers between 1 and 50
-        // Numbers: [4, 49, 41, 16]
-
         let draw_number = 6;
         let numbers = vec![4, 49, 41, 16];
         let hash = [0; 32];
 
         let response = LottoManagerResponseMessage::WinningNumbers(draw_number, numbers, hash);
         let encoded_response = response.encode();
-        ink::env::debug_println!("Reply response numbers: {encoded_response:02x?}");
+        let expected : Vec<u8> = hex::decode("03060000001004003100290010000000000000000000000000000000000000000000000000000000000000000000").expect("hex decode failed");
+        assert_eq!(expected, encoded_response);
 
         let winners = vec![];
         let response = LottoManagerResponseMessage::Winners(draw_number, winners, hash);
         let encoded_response = response.encode();
-        ink::env::debug_println!("Reply response winners: {encoded_response:02x?}");
+        let expected: Vec<u8> = hex::decode(
+            "0406000000000000000000000000000000000000000000000000000000000000000000000000",
+        )
+        .expect("hex decode failed");
+        assert_eq!(expected, encoded_response);
     }
 
     #[ink::test]
@@ -213,17 +181,29 @@ mod tests {
         let key = [QUEUE_PREFIX, &id.encode()].concat();
         ink::env::debug_println!("queue key: {key:02x?}");
     }
+    /*
+       #[ink::test]
+       fn decode_message() {
+           let encoded_message: Vec<u8> =
+               hex::decode("03060000001004003100290010000000000000000000000000000000000000000000000000000000000000000000").expect("hex decode failed");
+           let message = LottoManagerRequestMessage::decode(&mut encoded_message.as_slice())?;
+           ink::env::debug_println!("message: {message:?}");
 
-    #[ink::test]
-    fn decode_message() {
-        let encoded_message: Vec<u8> =
-            hex::decode("0600000001100400310029001000").expect("hex decode failed");
-        let message = LottoManagerRequestMessage::decode(&mut encoded_message.as_slice())?;
-        ink::env::debug_println!("message: {message:?}");
+           let draw_number = 6;
+           let numbers = vec![4, 49, 41, 16];
+           let hash = [0; 32];
+           let expected = LottoManagerRequestMessage::OpenRegistrations()WinningNumbers(draw_number, numbers, hash);
+           let encoded_response = response.encode();
+           let expected : Vec<u8> = hex::decode("03060000001004003100290010000000000000000000000000000000000000000000000000000000000000000000").expect("hex decode failed");
+           assert_eq!(expected, encoded_response);
 
-        let encoded_message: Vec<u8> =
-            hex::decode("07000000000401003200").expect("hex decode failed");
-        let message = LottoManagerRequestMessage::decode(&mut encoded_message.as_slice())?;
-        ink::env::debug_println!("message: {message:?}");
-    }
+           let response = LottoManagerResponseMessage::WinningNumbers(draw_number, numbers, hash);
+
+           let encoded_message: Vec<u8> =
+               hex::decode("0406000000000000000000000000000000000000000000000000000000000000000000000000").expect("hex decode failed");
+           let message = LottoManagerRequestMessage::decode(&mut encoded_message.as_slice())?;
+           ink::env::debug_println!("message: {message:?}");
+       }
+
+    */
 }

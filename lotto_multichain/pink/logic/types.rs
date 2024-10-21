@@ -57,4 +57,3 @@ pub struct RaffleConfig {
     pub min_number: Number,
     pub max_number: Number,
 }
-

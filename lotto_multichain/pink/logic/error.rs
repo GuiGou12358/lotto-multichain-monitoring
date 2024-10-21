@@ -13,6 +13,8 @@ pub enum RaffleDrawError {
     FailedToCallRollup,
     StatusUnknown,
     DrawNumberUnknown,
+    FailedToDecodeDrawNumber,
+    FailedToDecodeStatus,
     // error when checking the winners
     NoNumber,
     IndexerNotConfigured,

@@ -67,18 +67,3 @@ pub enum LottoManagerResponseMessage {
     /// arg3: hash of results
     ResultsPropagated(DrawNumber, Vec<RegistrationContractId>, Hash),
 }
-
-pub trait RaffleManagerContract {
-    fn get_raffle_manager_status(&self) -> Option<RaffleManagerStatus>;
-
-    /*
-    fn get_request(&self) -> Result<Option<LottoManagerRequestMessage>, RaffleDrawError>;
-
-    fn send_response(
-        &mut self,
-        response: LottoManagerResponseMessage,
-        attest_key: &[u8],
-    ) -> Result<Option<Vec<u8>>, RaffleDrawError>;
-
-     */
-}

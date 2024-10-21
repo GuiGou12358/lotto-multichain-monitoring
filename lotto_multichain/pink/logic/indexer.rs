@@ -6,7 +6,7 @@ use crate::types::*;
 use alloc::vec::Vec;
 use ink::prelude::{format, string::String};
 use pink_extension::{debug, http_post, info};
-use scale::{Encode};
+use scale::Encode;
 use serde::Deserialize;
 use serde_json_core;
 use sp_core::crypto::Ss58Codec;
