@@ -1,5 +1,5 @@
 import {loadFixture} from "@nomicfoundation/hardhat-toolbox/network-helpers";
-import {expect} from "chai";
+import {assert, expect} from "chai";
 import {ethers} from "hardhat";
 import {RaffleRegistration} from "../typechain-types";
 import {Signer} from "ethers";
@@ -41,12 +41,10 @@ describe('Test raffle life cycle', () => {
     expect (await contract.minNumber()).to.equal(0);
     expect (await contract.maxNumber()).to.equal(0);
     expect (await contract.registrationContractId()).to.equal(0);
-    console.log(await contract.getStatus());
     expect (await contract.getStatus()).to.equal(Status.NotStarted);
+
     expect (await contract.getDrawNumber()).to.equal(0);
     expect (await contract.can_participate()).to.equal(false);
-
-    console.log("setConfigAndStart");
 
     const request_bytes = abiCoder.encode(
         ['uint8', 'uint', 'uint', 'uint'],
@@ -57,8 +55,6 @@ describe('Test raffle life cycle', () => {
         [RequestType.SET_CONFIG_AND_START, request_bytes]
     );
     const reply = '0x00' + action.substring(2);
-
-    console.log("reply %s", reply);
     await expect(contract.connect(attestor).rollupU256CondEq([], [], [], [], [reply])).not.to.be.reverted;
 
     // check post conditions
@@ -92,15 +88,12 @@ describe('Test raffle life cycle', () => {
         [RequestType.OPEN_REGISTRATIONS, request_bytes]
     );
     const reply = '0x00' + action.substring(2);
-
-    console.log("reply %s", reply);
     await expect(contract.connect(attestor).rollupU256CondEq([], [], [], [], [reply])).not.to.be.reverted;
 
     // check post conditions
     expect (await contract.getStatus()).to.equal(Status.RegistrationsOpen);
     expect (await contract.getDrawNumber()).to.equal(drawNumber);
     expect (await contract.can_participate()).to.equal(true);
-
   }
 
   async function closeRegistrations(
@@ -114,8 +107,6 @@ describe('Test raffle life cycle', () => {
     expect (await contract.getDrawNumber()).to.equal(drawNumber);
     expect (await contract.can_participate()).to.equal(true);
 
-    console.log("closeRegistrations");
-
     const request_bytes = abiCoder.encode(
         ['uint'],
         [drawNumber]
@@ -125,9 +116,6 @@ describe('Test raffle life cycle', () => {
         [RequestType.CLOSE_REGISTRATIONS, request_bytes]
     );
     const reply = '0x00' + action.substring(2);
-
-    console.log("reply %s", reply);
-
     await expect(contract.connect(attestor).rollupU256CondEq([], [], [], [], [reply])).not.to.be.reverted;
 
     // check post conditions
@@ -150,8 +138,6 @@ describe('Test raffle life cycle', () => {
     expect (await contract.getDrawNumber()).to.equal(drawNumber);
     expect (await contract.can_participate()).to.equal(false);
 
-    console.log("setResults");
-
     const request_bytes = abiCoder.encode(
         ['uint', 'uint[]', 'address[]'],
         [drawNumber, numbers, winners]
@@ -161,14 +147,18 @@ describe('Test raffle life cycle', () => {
         [RequestType.SET_RESULTS, request_bytes]
     );
     const reply = '0x00' + action.substring(2);
-
-    console.log("reply %s", reply);
     await expect(contract.connect(attestor).rollupU256CondEq([], [], [], [], [reply])).not.to.be.reverted;
 
     // check post conditions
     expect (await contract.getStatus()).to.equal(Status.ResultsReceived);
     expect (await contract.getDrawNumber()).to.equal(drawNumber);
     expect (await contract.can_participate()).to.equal(false);
+
+    // check the storage for status
+    expect ( await contract.getStorage("0x5f737461747573")).to.equal("0x0000000000000000000000000000000000000000000000000000000000000004");
+    // check the storage for draw number
+    expect ( await contract.getStorage("0x5f647261774e756d626572")).to.equal("0x000000000000000000000000000000000000000000000000000000000000000b")
+
 
   }
 
@@ -182,8 +172,6 @@ describe('Test raffle life cycle', () => {
 
     return {contract, owner, attestor, addr1, addr2};
   }
-
-
 
   it('configure and open the registrations', async () => {
     const {contract, attestor} = await loadFixture(deployContractFixture);
@@ -285,17 +273,115 @@ describe('Test raffle life cycle', () => {
         [RequestType.SET_RESULTS, request_bytes]
     );
     const reply = '0x00' + action.substring(2);
-
-    console.log("reply %s", reply);
     await expect(contract.connect(attestor).rollupU256CondEq([], [], [], [], [reply])).to.be.reverted;
   }
-
-
 
   it('should not config and start the raffle (unauthorized)', async () => {
     const {contract, owner, addr1} = await loadFixture(deployContractFixture);
     await expect(contract.connect(owner).rollupU256CondEq([], [], [], [], [])).to.be.reverted;
     await expect(contract.connect(addr1).rollupU256CondEq([], [], [], [], [])).to.be.reverted;
   });
+
+
+  it('check hex - kv store', async () => {
+    assert.equal(ethers.hexlify(ethers.toUtf8Bytes("_status")), "0x5f737461747573", "status key doesn't match");
+    assert.equal(ethers.hexlify(ethers.toUtf8Bytes("_drawNumber")), "0x5f647261774e756d626572", "draw number key doesn't match");
+  });
+
+  it('check hex - config and start request', async () => {
+
+    const request_bytes = abiCoder.encode(
+      ['uint8', 'uint', 'uint', 'uint'],
+      [4, 1, 50, 33]
+    );
+    const action = abiCoder.encode(
+      ['uint8', 'bytes'],
+      [RequestType.SET_CONFIG_AND_START, request_bytes]
+    );
+    const reply = '0x00' + action.substring(2);
+
+    assert.equal(
+      reply,
+      "0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000320000000000000000000000000000000000000000000000000000000000000021",
+      "reply doesn't match"
+    );
+  });
+
+  it('check hex - open registration', async () => {
+
+    const request_bytes = abiCoder.encode(
+      ['uint'],
+      [11]
+    );
+    const action = abiCoder.encode(
+      ['uint', 'bytes'],
+      [RequestType.OPEN_REGISTRATIONS, request_bytes]
+    );
+    const reply = '0x00' + action.substring(2);
+
+    assert.equal(
+      reply,
+      "0x00000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000b",
+      "reply doesn't match"
+    );
+  });
+
+  it('check hex - close registration', async () => {
+
+    const request_bytes = abiCoder.encode(
+      ['uint'],
+      [11]
+    );
+    const action = abiCoder.encode(
+      ['uint', 'bytes'],
+      [RequestType.CLOSE_REGISTRATIONS, request_bytes]
+    );
+    const reply = '0x00' + action.substring(2);
+
+    assert.equal(
+      reply,
+      "0x00000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000b",
+      "reply doesn't match"
+    );
+  });
+
+  it('check hex - set results - no winner', async () => {
+
+    const request_bytes = abiCoder.encode(
+      ['uint', 'uint[]', 'address[]'],
+      [11, [33, 47, 5, 6], []]
+    );
+    const action = abiCoder.encode(
+      ['uint8', 'bytes'],
+      [RequestType.SET_RESULTS, request_bytes]
+    );
+    const reply = '0x00' + action.substring(2);
+
+    assert.equal(
+      reply,
+      "0x00000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000120000000000000000000000000000000000000000000000000000000000000000b0000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000021000000000000000000000000000000000000000000000000000000000000002f000000000000000000000000000000000000000000000000000000000000000500000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000",
+      "reply doesn't match"
+    );
+  });
+
+  it('check hex - set results - 1 winner', async () => {
+
+    const request_bytes = abiCoder.encode(
+      ['uint', 'uint[]', 'address[]'],
+      [11, [33, 47, 5, 6], ['0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc']]
+    );
+    const action = abiCoder.encode(
+      ['uint', 'bytes'],
+      [RequestType.SET_RESULTS, request_bytes]
+    );
+    const reply = '0x00' + action.substring(2);
+
+    assert.equal(
+      reply,
+      "0x00000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000000b0000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000021000000000000000000000000000000000000000000000000000000000000002f0000000000000000000000000000000000000000000000000000000000000005000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000010000000000000000000000003c44cdddb6a900fa2b585dd299e03d12fa4293bc",
+      "reply doesn't match"
+    );
+  });
+
 
 });
