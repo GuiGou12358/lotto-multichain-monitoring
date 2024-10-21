@@ -3,13 +3,13 @@ import {contractAddress} from "./common";
 
 async function main() {
 
-  console.log("Contract's address: %", contractAddress);
+  console.log("Contract's address: %s", contractAddress);
 
-  const [owner, user1, user2] = await ethers.getSigners();
-  console.log("user 1: %", user1);
-  console.log("user 2: %", user2);
+  const [owner, _attestor, user1, user2] = await ethers.getSigners();
+  console.log("user 1: %s", user1.address);
+  console.log("user 2: %s", user2.address);
 
-  const lottoInstance = await ethers.getContractAt("LottoClient", contractAddress);
+  const lottoInstance = await ethers.getContractAt("RaffleRegistration", contractAddress);
 
   await lottoInstance.connect(owner).participate([2, 17, 31, 45]);
   await lottoInstance.connect(owner).participate([15, 30, 28, 49]);

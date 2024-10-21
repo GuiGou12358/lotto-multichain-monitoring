@@ -10,8 +10,9 @@ async function main() {
 
   const lottoInstance = await ethers.getContractAt("RaffleRegistration", contractAddress);
 
-  console.log("Status: %s", await lottoInstance.getStatus());
-  console.log("Draw number: %s", await lottoInstance.getDrawNumber());
+  await lottoInstance.connect(owner).registerAttestor(attestor.address);
+
+  console.log("Attestor granted: %s", attestor.address);
 
 }
 
