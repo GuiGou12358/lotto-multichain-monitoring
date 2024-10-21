@@ -159,7 +159,6 @@ describe('Test raffle life cycle', () => {
     // check the storage for draw number
     expect ( await contract.getStorage("0x5f647261774e756d626572")).to.equal("0x000000000000000000000000000000000000000000000000000000000000000b")
 
-
   }
 
   async function deployContractFixture(){
