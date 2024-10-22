@@ -96,12 +96,6 @@ mod lotto_draw_multichain {
             self.owner
         }
 
-        /// Gets the attestor address used by this rollup
-        #[ink(message)]
-        pub fn get_attest_address(&self) -> Vec<u8> {
-            signing::get_public_key(&self.attest_key, signing::SigType::Sr25519)
-        }
-
         /// Set attestor key.
         ///
         /// For dev purpose.
@@ -120,9 +114,26 @@ mod lotto_draw_multichain {
             Ok(())
         }
 
-        /// Gets the ecdsa address used by this rollup in the meta transaction
+        /// Gets the attestor address used by this rollup (for substrate tx)
         #[ink(message)]
-        pub fn get_attest_ecdsa_address(&self) -> Vec<u8> {
+        pub fn get_attest_address_substrate(&self) -> Vec<u8> {
+            signing::get_public_key(&self.attest_key, signing::SigType::Sr25519)
+        }
+
+        /// Gets the ecdsa address used by this rollup in the meta transaction (for evm tx)
+        #[ink(message)]
+        pub fn get_attest_ecdsa_address_evm(&self) -> [u8; 20] {
+            let public_key: [u8; 33] = signing::get_public_key(&self.attest_key, signing::SigType::Ecdsa)
+                .try_into()
+                .expect("Public key should be of length 33");
+            let mut address = [0u8; 20];
+            ink::env::ecdsa_to_eth_address(&public_key, &mut address).expect("Get address of ecdsa failed");
+            address
+        }
+
+        /// Gets the ecdsa address used by this rollup in the meta transaction (for substrate tx)
+        #[ink(message)]
+        pub fn get_attest_ecdsa_address_substrate(&self) -> Vec<u8> {
             use ink::env::hash;
             let input = signing::get_public_key(&self.attest_key, signing::SigType::Ecdsa);
             let mut output = <hash::Blake2x256 as hash::HashOutput>::Type::default();
@@ -204,107 +215,6 @@ mod lotto_draw_multichain {
             Ok(())
         }
 
-        /*
-                /// Gets the sender address used by this rollup (in case of meta-transaction)
-                #[ink(message)]
-                pub fn get_primary_sender_address(&self) -> Option<Vec<u8>> {
-                    if let Some(Some(sender_key)) = self
-                        .primary_consumer
-                        .as_ref()
-                        .map(|c| c.sender_key.as_ref())
-                    {
-                        let sender_key = signing::get_public_key(sender_key, signing::SigType::Sr25519);
-                        Some(sender_key)
-                    } else {
-                        None
-                    }
-                }
-
-                /// Gets the sender address used by this rollup (in case of meta-transaction)
-                #[ink(message)]
-                pub fn get_secondary_sender_address(&self, key: u8) -> Option<Vec<u8>> {
-                    if let Some(Some(sender_key)) = self.secondary_consumers.get(key).map(|c| c.sender_key)
-                    {
-                        let sender_key = signing::get_public_key(&sender_key, signing::SigType::Sr25519);
-                        Some(sender_key)
-                    } else {
-                        None
-                    }
-                }
-
-                 /// Gets the config of the target consumer contract
-        #[ink(message)]
-        pub fn get_config_raffle_manager(&self) -> Option<(String, u8, u8, WasmContractId)> {
-            self.primary_consumer
-                .as_ref()
-                .map(|c| (c.rpc.clone(), c.pallet_id, c.call_id, c.contract_id))
-        }
-
-        /// Gets the config of the target consumer contract
-        #[ink(message)]
-        pub fn get_secondary_consumer(&self, key: u8) -> Option<(String, EvmContractId)> {
-            self.secondary_consumers
-                .get(key)
-                .map(|c| (c.rpc.clone(), c.contract_id))
-        }
-
-        /// Configures the target consumer contract (admin only)
-        #[ink(message)]
-        pub fn set_primary_consumer(
-            &mut self,
-            rpc: String,
-            pallet_id: u8,
-            call_id: u8,
-            contract_id: Vec<u8>,
-            sender_key: Option<Vec<u8>>,
-        ) -> Result<()> {
-            self.ensure_owner()?;
-            self.primary_consumer = Some(WasmContractConfig {
-                rpc,
-                pallet_id,
-                call_id,
-                contract_id: contract_id
-                    .try_into()
-                    .or(Err(ContractError::InvalidAddressLength))?,
-                sender_key: match sender_key {
-                    Some(key) => Some(key.try_into().or(Err(ContractError::InvalidKeyLength))?),
-                    None => None,
-                },
-            });
-            Ok(())
-        }
-
-        #[ink(message)]
-        pub fn set_secondary_consumer(
-            &mut self,
-            key: u8,
-            config: Option<EvmContractConfig>,
-        ) -> Result<()> {
-            self.ensure_owner()?;
-            match config {
-                None => {
-                    if let Some(index) =
-                        self.secondary_consumers_keys.iter().position(|k| *k == key)
-                    {
-                        self.secondary_consumers.remove(key);
-                        self.secondary_consumers_keys.remove(index);
-                    }
-                }
-                Some(c) => {
-                    self.secondary_consumers.insert(key, &c);
-                    if !self
-                        .secondary_consumers_keys
-                        .iter()
-                        .any(|k| *k == key)
-                    {
-                        self.secondary_consumers_keys.push(key);
-                    }
-                }
-            }
-            Ok(())
-        }
-
-         */
 
         /// Gets the config to target the indexer
         #[ink(message)]
