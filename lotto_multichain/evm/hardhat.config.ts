@@ -40,10 +40,26 @@ const config: HardhatUserConfig = {
       url: 'https://rpc.minato.soneium.org',
       accounts: [MINATO_OWNER_PRIVATE_KEY, MINATO_EVM_ATTESTOR_PK, MINATO_USER1_PRIVATE_KEY, MINATO_USER2_PRIVATE_KEY]
     },
+    'moonbase': {
+      url: 'https://rpc.api.moonbase.moonbeam.network',
+      accounts: [MINATO_OWNER_PRIVATE_KEY, MINATO_EVM_ATTESTOR_PK, MINATO_USER1_PRIVATE_KEY, MINATO_USER2_PRIVATE_KEY]
+    },
+    'shibuya': {
+      url: 'https://evm.shibuya.astar.network',
+      accounts: [MINATO_OWNER_PRIVATE_KEY, MINATO_EVM_ATTESTOR_PK, MINATO_USER1_PRIVATE_KEY, MINATO_USER2_PRIVATE_KEY]
+    },
+    'base-sepolia': {
+      url: 'https://sepolia.base.org',
+      accounts: [MINATO_OWNER_PRIVATE_KEY, MINATO_EVM_ATTESTOR_PK, MINATO_USER1_PRIVATE_KEY, MINATO_USER2_PRIVATE_KEY]
+    },
   },
+
   etherscan: {
     apiKey: {
-      'minato': 'empty'
+      'minato': 'empty',
+      'moonbase': 'empty',
+      'shibuya': 'empty',
+      'base-sepolia': 'empty'
     },
     customChains: [
       {
@@ -52,6 +68,30 @@ const config: HardhatUserConfig = {
         urls: {
           apiURL: "https://explorer-testnet.soneium.org/api",
           browserURL: "https://explorer-testnet.soneium.org"
+        }
+      },
+      {
+        network: "moonbase",
+        chainId: 1287,
+        urls: {
+          apiURL: "https://moonbase.moonscan.io/api",
+          browserURL: "https://moonbase.moonscan.io"
+        }
+      },
+      {
+        network: "shibuya",
+        chainId: 81,
+        urls: {
+          apiURL: "https://blockscout.com/shibuya/api/eth-rpc",
+          browserURL: "https://blockscout.com/shibuya"
+        }
+      },
+      {
+        network: "base-sepolia",
+        chainId: 84532,
+        urls: {
+          apiURL: "https://eth-sepolia.blockscout.com/api",
+          browserURL: "https://eth-sepolia.blockscout.com"
         }
       }
     ]
