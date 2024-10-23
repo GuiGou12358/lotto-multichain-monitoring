@@ -92,7 +92,7 @@ mod lotto_draw_multichain {
 
         /// Gets the owner of the contract
         #[ink(message)]
-        pub fn owner(&self) -> AccountId {
+             pub fn owner(&self) -> AccountId {
             self.owner
         }
 
