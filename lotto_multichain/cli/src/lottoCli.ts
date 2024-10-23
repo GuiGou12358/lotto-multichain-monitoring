@@ -53,12 +53,23 @@ async function run() : Promise<void>{
     if (argv.synchronize) {
         await initPhatContractConnection();
 
+        let nbErrors = 0;
         while (await hasPendingMessage()) {
-            await callPhatContract();
-            // wait 30 seconds and read again the status
-            await new Promise(f => setTimeout(f, 30000));
-            // display the data
-            await displayRaffleManagerData();
+            if (nbErrors > 10) {
+                return Promise.reject("Stop the synchronization");
+            }
+            try {
+                await callPhatContract();
+                // wait 15 seconds and read again the status
+                await new Promise(f => setTimeout(f, 15000));
+                // display the data
+                await displayRaffleManagerData();
+                nbErrors = 0;
+            } catch (e) {
+                nbErrors +=1;
+                // wait 10 seconds
+                await new Promise(f => setTimeout(f, 10000));
+            }
         }
     }
 
