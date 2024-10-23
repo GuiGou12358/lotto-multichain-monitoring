@@ -33,22 +33,23 @@ pub enum Status {
 
 #[openbrush::trait_definition]
 pub trait RaffleManager: Storage<Data> {
-    /// Open the registrations
-    fn add_registration_contract(
+
+    /// Set the regisration contracts
+    fn set_registration_contracts(
         &mut self,
-        registration_contract: RegistrationContractId,
+        registration_contracts: Vec<RegistrationContractId>,
     ) -> Result<(), RaffleError> {
         // check the status
         self.check_registration_contracts_status(Status::NotStarted)?;
 
-        // add the new contract
-        self.data::<Data>()
-            .registration_contracts
-            .push(registration_contract);
+        // update the new contract
+        self.data::<Data>().registration_contracts = registration_contracts.clone();
         // add the default status for this added contract
-        self.data::<Data>()
-            .registration_contracts_status
-            .insert(registration_contract, &Status::NotStarted);
+        for registration_contract in &registration_contracts {
+            self.data::<Data>()
+                .registration_contracts_status
+                .insert(registration_contract, &Status::NotStarted);
+        }
 
         Ok(())
     }
@@ -295,13 +296,7 @@ mod tests {
         let mut contract = Contract::new();
 
         contract
-            .add_registration_contract(100)
-            .expect("Fail to add registrations contract");
-        contract
-            .add_registration_contract(101)
-            .expect("Fail to add registrations contract");
-        contract
-            .add_registration_contract(102)
+            .set_registration_contracts(vec![100, 101, 102])
             .expect("Fail to add registrations contract");
 
         assert_eq!(contract.get_status(), Status::NotStarted);
@@ -335,7 +330,7 @@ mod tests {
         assert_eq!(contract.get_draw_number(), 1);
 
         // we cannot add registration contract when it started
-        assert_eq!(contract.add_registration_contract(1), Err(IncorrectStatus));
+        assert_eq!(contract.set_registration_contracts(vec![1]), Err(IncorrectStatus));
     }
 
     #[ink::test]
@@ -505,13 +500,7 @@ mod tests {
         let mut contract = Contract::new();
 
         contract
-            .add_registration_contract(100)
-            .expect("Fail to add registrations contract");
-        contract
-            .add_registration_contract(101)
-            .expect("Fail to add registrations contract");
-        contract
-            .add_registration_contract(102)
+            .set_registration_contracts(vec![100, 101, 102])
             .expect("Fail to add registrations contract");
 
         contract
@@ -633,13 +622,7 @@ mod tests {
         let mut contract = Contract::new();
 
         contract
-            .add_registration_contract(100)
-            .expect("Fail to add registrations contract");
-        contract
-            .add_registration_contract(101)
-            .expect("Fail to add registrations contract");
-        contract
-            .add_registration_contract(102)
+            .set_registration_contracts(vec![100, 101, 102])
             .expect("Fail to add registrations contract");
 
         // start

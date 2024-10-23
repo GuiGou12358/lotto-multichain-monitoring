@@ -53,16 +53,14 @@ async fn alice_configures_raffle_manager(
         .await
         .expect("set config failed");
 
-    for registration_contract_id in registration_contracts {
-        let add_registration_contract =
-            build_message::<lotto_registration_manager_contract::ContractRef>(contract_id.clone())
-                .call(|contract| contract.add_registration_contract(registration_contract_id));
+    let set_registration_contracts =
+        build_message::<lotto_registration_manager_contract::ContractRef>(contract_id.clone())
+            .call(|contract| contract.set_registration_contracts(registration_contracts.clone()));
 
-        client
-            .call(&ink_e2e::alice(), add_registration_contract, 0, None)
-            .await
-            .expect("add registration contract failed");
-    }
+    client
+        .call(&ink_e2e::alice(), set_registration_contracts, 0, None)
+        .await
+        .expect("set registration contracts failed");
 }
 
 async fn alice_grants_bob_as_attestor(
@@ -87,7 +85,7 @@ async fn alice_starts_raffle(
 ) {
     let start_raffle =
         build_message::<lotto_registration_manager_contract::ContractRef>(contract_id.clone())
-            .call(|contract| contract.start(previous_draw_number));
+            .call(|contract| contract.start(Some(previous_draw_number)));
     client
         .call(&ink_e2e::alice(), start_raffle, 0, None)
         .await

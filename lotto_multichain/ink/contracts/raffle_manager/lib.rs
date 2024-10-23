@@ -211,22 +211,20 @@ pub mod lotto_registration_manager_contract {
 
         #[ink(message)]
         #[openbrush::modifiers(access_control::only_role(LOTTO_MANAGER_ROLE))]
-        pub fn add_registration_contract(
+        pub fn set_registration_contracts(
             &mut self,
-            registration_contract: RegistrationContractId,
+            registration_contracts: Vec<RegistrationContractId>,
         ) -> Result<(), ContractError> {
             // add registration contract
-            RaffleManager::add_registration_contract(self, registration_contract)?;
-            // TODO develop delete/update
-
+            RaffleManager::set_registration_contracts(self, registration_contracts)?;
             Ok(())
         }
 
         #[ink(message)]
         #[openbrush::modifiers(access_control::only_role(LOTTO_MANAGER_ROLE))]
-        pub fn start(&mut self, previous_draw_number: DrawNumber) -> Result<(), ContractError> {
+        pub fn start(&mut self, previous_draw_number: Option<DrawNumber>) -> Result<(), ContractError> {
             // start
-            RaffleManager::start(self, previous_draw_number)?;
+            RaffleManager::start(self, previous_draw_number.unwrap_or_default())?;
             // propagate the config in all given contracts
             let config = RaffleConfig::ensure_config(self)?;
 
