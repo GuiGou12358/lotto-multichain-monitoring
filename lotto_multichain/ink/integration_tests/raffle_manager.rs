@@ -814,7 +814,7 @@ async fn test_meta_tx_rollup_cond_eq(mut client: ink_e2e::Client<C, E>) -> E2ERe
         Signer::<PolkadotConfig>::account_id(&subxt_signer::ecdsa::dev::bob()).0,
     );
 
-    // add the role => it should be succeed
+    // add the role => it should succeed
     let grant_role =
         build_message::<lotto_registration_manager_contract::ContractRef>(contract_id.clone())
             .call(|contract| contract.grant_role(ATTESTOR_ROLE, Some(from)));
