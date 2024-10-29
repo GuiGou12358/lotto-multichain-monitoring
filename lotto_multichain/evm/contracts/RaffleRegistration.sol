@@ -27,7 +27,7 @@ contract RaffleRegistration is Config, Ownable, AccessControl, PhatRollupAnchor 
 	event ResultsReceived(uint indexed registrationContractId, uint indexed drawNumber, uint[] numbers, address[] winners);
 
 	// Event emitted when the participation is registered
-	event ParticipantRegistered(uint indexed registrationContractId, uint indexed drawNumber, address indexed participant, uint[] numbers);
+	event ParticipationRegistered(uint indexed registrationContractId, uint indexed drawNumber, address indexed participant, uint[] numbers);
 
 	// registration contract id, must be unique in all similar contracts deployed on different chains
 	uint public registrationContractId;
@@ -100,7 +100,7 @@ contract RaffleRegistration is Config, Ownable, AccessControl, PhatRollupAnchor 
 
 		// save the participation with an event
 		address _participant = msg.sender;
-		emit ParticipantRegistered(registrationContractId, getDrawNumber(), _participant, _numbers);
+		emit ParticipationRegistered(registrationContractId, getDrawNumber(), _participant, _numbers);
 	}
 
 	bytes public constant STATUS = "_status";
