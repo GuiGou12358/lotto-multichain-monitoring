@@ -26,21 +26,21 @@ pub mod lotto_registration_manager_contract {
 
     /// Event emitted when the registrations are open
     #[ink(event)]
-    pub struct RegistrationOpen {
+    pub struct RegistrationsOpen {
         #[ink(topic)]
         draw_number: DrawNumber,
     }
 
     /// Event emitted when the registrations are closed
     #[ink(event)]
-    pub struct RegistrationClosed {
+    pub struct RegistrationsClosed {
         #[ink(topic)]
         draw_number: DrawNumber,
     }
 
-    /// Event emitted when the raffle result is received
+    /// Event emitted when the winning numbers are received
     #[ink(event)]
-    pub struct ResultReceived {
+    pub struct NumbersDrawn {
         #[ink(topic)]
         draw_number: DrawNumber,
         numbers: Vec<Number>,
@@ -261,7 +261,7 @@ pub mod lotto_registration_manager_contract {
             let draw_number = RaffleManager::close_registrations(self)?;
 
             // emmit the event
-            self.env().emit_event(RegistrationClosed { draw_number });
+            self.env().emit_event(RegistrationsClosed { draw_number });
 
             // close the registrations in all contracts
             let registration_contracts = RaffleManager::get_registration_contracts(self);
@@ -310,7 +310,7 @@ pub mod lotto_registration_manager_contract {
             let draw_number = RaffleManager::open_registrations(self)?;
 
             // emmit the event
-            self.env().emit_event(RegistrationOpen { draw_number });
+            self.env().emit_event(RegistrationsOpen { draw_number });
 
             // open the registrations in all given contracts
             let registration_contracts = RaffleManager::get_registration_contracts(self);
@@ -400,7 +400,7 @@ pub mod lotto_registration_manager_contract {
             RaffleManager::set_results(self, draw_number, numbers.clone())?;
 
             // emmit the event
-            self.env().emit_event(ResultReceived {
+            self.env().emit_event(NumbersDrawn {
                 draw_number,
                 numbers: numbers.clone(),
             });
