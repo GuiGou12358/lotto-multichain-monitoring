@@ -18,16 +18,16 @@ contract RaffleRegistration is Config, Ownable, AccessControl, PhatRollupAnchor 
 	event Started(uint indexed registrationContractId);
 
 	// Event emitted when the registrations are open
-	event RegistrationsOpen(uint indexed registrationContractId, uint indexed draw_number);
+	event RegistrationsOpen(uint indexed registrationContractId, uint indexed drawNumber);
 
 	// Event emitted when the registrations are closed
-	event RegistrationsClosed(uint indexed registrationContractId, uint indexed draw_number);
+	event RegistrationsClosed(uint indexed registrationContractId, uint indexed drawNumber);
 
 	// Event emitted when the results are received
-	event ResultsReceived(uint indexed registrationContractId, uint indexed draw_number, uint[] numbers, address[] winners);
+	event ResultsReceived(uint indexed registrationContractId, uint indexed drawNumber, uint[] numbers, address[] winners);
 
 	// Event emitted when the participation is registered
-	event ParticipantRegistered(uint indexed registrationContractId, uint indexed draw_number, address indexed participant, uint[] numbers);
+	event ParticipantRegistered(uint indexed registrationContractId, uint indexed drawNumber, address indexed participant, uint[] numbers);
 
 	// registration contract id, must be unique in all similar contracts deployed on different chains
 	uint public registrationContractId;
@@ -50,40 +50,40 @@ contract RaffleRegistration is Config, Ownable, AccessControl, PhatRollupAnchor 
 		emit Started(registrationContractId);
 	}
 
-	function _open_registrations(uint _draw_number) private {
+	function _open_registrations(uint _drawNumber) private {
 		// check the status
 		Status status = getStatus();
 		require(status == Status.Started || status == Status.ResultsReceived, "Incorrect Status");
 		// save the data
-		_setDrawNumber(_draw_number);
+		_setDrawNumber(_drawNumber);
 		_setStatus(Status.RegistrationsOpen);
 		// emit the event
-		emit RegistrationsOpen(registrationContractId, _draw_number);
+		emit RegistrationsOpen(registrationContractId, _drawNumber);
 	}
 
-	function _close_registrations(uint _draw_number) private {
+	function _close_registrations(uint _drawNumber) private {
 		// check the status
 		require(getStatus() == Status.RegistrationsOpen, "Incorrect Status");
 		// check the draw number
-		require(getDrawNumber() == _draw_number, "Incorrect Draw Number");
+		require(getDrawNumber() == _drawNumber, "Incorrect Draw Number");
 		// save the data
 		_setStatus(Status.RegistrationsClosed);
 		// emit the event
-		emit RegistrationsClosed(registrationContractId, _draw_number);
+		emit RegistrationsClosed(registrationContractId, _drawNumber);
 	}
 
-	function _saveResults(uint _draw_number, uint[] memory _numbers, address[] memory _winners) private {
+	function _saveResults(uint _drawNumber, uint[] memory _numbers, address[] memory _winners) private {
 		// check the status
 		require(getStatus() == Status.RegistrationsClosed, "Incorrect Status");
 		// check the draw number
-		require(getDrawNumber() == _draw_number, "Incorrect Draw Number");
+		require(getDrawNumber() == _drawNumber, "Incorrect Draw Number");
 		// save the results
-		//results[_draw_number] = _numbers;
-		//winners[_draw_number] = _winners;
+		//results[_drawNumber] = _numbers;
+		//winners[_drawNumber] = _winners;
 		// update the status
 		_setStatus(Status.ResultsReceived);
 		// emit the event
-		emit ResultsReceived(registrationContractId, _draw_number, _numbers, _winners);
+		emit ResultsReceived(registrationContractId, _drawNumber, _numbers, _winners);
 	}
 
 	// return true if the users can participate (ie register their numbers)
@@ -155,19 +155,19 @@ contract RaffleRegistration is Config, Ownable, AccessControl, PhatRollupAnchor 
 			_start(_registrationContractId);
 		} else if (_requestType == RequestType.OPEN_REGISTRATIONS){
 
-			(uint _draw_number) = abi.decode(_request, (uint));
+			(uint _drawNumber) = abi.decode(_request, (uint));
 			// open the registrations
-			_open_registrations(_draw_number);
+			_open_registrations(_drawNumber);
 		} else if (_requestType == RequestType.CLOSE_REGISTRATIONS){
-			(uint _draw_number) = abi.decode(_request, (uint));
+			(uint _drawNumber) = abi.decode(_request, (uint));
 			// close the registrations
-			_close_registrations(_draw_number);
+			_close_registrations(_drawNumber);
 		} else if (_requestType == RequestType.SET_RESULTS){
-			(uint _draw_number, uint[] memory _numbers, address[] memory _winners) = abi.decode(_request, (uint, uint[], address[]));
+			(uint _drawNumber, uint[] memory _numbers, address[] memory _winners) = abi.decode(_request, (uint, uint[], address[]));
 			// check if the numbers satisfies the config
 			_checkNumbers(_numbers);
 			// set the results
-			_saveResults(_draw_number, _numbers, _winners);
+			_saveResults(_drawNumber, _numbers, _winners);
 		}
 
 	}
