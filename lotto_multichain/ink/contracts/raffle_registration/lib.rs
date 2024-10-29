@@ -15,24 +15,17 @@ pub mod lotto_registration_contract {
         meta_transaction, meta_transaction::*, rollup_anchor, rollup_anchor::*,
     };
 
-    /// Event emitted when the config is received
+    /// Event emitted when the config is updated
     #[ink(event)]
     pub struct ConfigUpdated {
-        #[ink(topic)]
-        registration_contract_id: RegistrationContractId,
         config: Config,
     }
 
-    /// Event emitted when the participation is registered
+    /// Event emitted when the workflow starts
     #[ink(event)]
-    pub struct ParticipationRegistered {
+    pub struct Started {
         #[ink(topic)]
         registration_contract_id: RegistrationContractId,
-        #[ink(topic)]
-        draw_number: DrawNumber,
-        #[ink(topic)]
-        participant: AccountId,
-        numbers: Vec<Number>,
     }
 
     /// Event emitted when the registrations are open
@@ -62,6 +55,18 @@ pub mod lotto_registration_contract {
         draw_number: DrawNumber,
         numbers: Vec<Number>,
         winners: Vec<AccountId>,
+    }
+
+    /// Event emitted when the participation is registered
+    #[ink(event)]
+    pub struct ParticipationRegistered {
+        #[ink(topic)]
+        registration_contract_id: RegistrationContractId,
+        #[ink(topic)]
+        draw_number: DrawNumber,
+        #[ink(topic)]
+        participant: AccountId,
+        numbers: Vec<Number>,
     }
 
     /// Errors occurred in the contract
@@ -207,12 +212,16 @@ pub mod lotto_registration_contract {
 
             // emit the event
             self.env().emit_event(ConfigUpdated {
-                registration_contract_id,
                 config,
             });
 
             // start the workflow
             Raffle::start(self)?;
+
+            // emit the event
+            self.env().emit_event(Started {
+                registration_contract_id,
+            });
 
             Ok(())
         }
