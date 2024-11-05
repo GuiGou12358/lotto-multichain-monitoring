@@ -3,7 +3,7 @@ import {KeyringPair} from "@polkadot/keyring/types";
 import {readFileSync} from "fs";
 import {RaffleConfig, SmartContractConfig, WasmContractCallConfig} from "./config";
 import {getApi, query, tx} from "./wasmContractHelper";
-import {seed} from "./seed";
+import {seed_wasm} from "./seed";
 import {Keyring} from "@polkadot/api";
 
 
@@ -26,7 +26,7 @@ export class RaffleManager {
         const api = await getApi((this.config.call as WasmContractCallConfig).wssRpc);
         const metadata = readFileSync(this.config.metadata);
         this.smartContract = new ContractPromise(api, metadata.toString(), this.config.address);
-        this.signer = new Keyring({ type: 'sr25519' }).addFromUri(seed);
+        this.signer = new Keyring({ type: 'sr25519' }).addFromUri(seed_wasm);
     }
 
     public async display() {

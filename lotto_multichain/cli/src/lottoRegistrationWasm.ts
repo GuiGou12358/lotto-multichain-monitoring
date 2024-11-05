@@ -4,12 +4,12 @@ import {ContractPromise} from "@polkadot/api-contract";
 import {getApi, query, tx} from "./wasmContractHelper";
 import {Keyring} from "@polkadot/api";
 import {KeyringPair} from "@polkadot/keyring/types";
-import {seed} from "./seed";
+import {seed_wasm} from "./seed";
 
-export class RaffleRegistration {
+export class RaffleRegistrationWasm {
 
     private readonly config: RegistrationContractConfig;
-    private smartContract: ContractPromise;
+    private contract: ContractPromise;
     private signer : KeyringPair;
 
     public constructor(config: RegistrationContractConfig){
@@ -18,14 +18,14 @@ export class RaffleRegistration {
 
     public async init(){
 
-        if (this.smartContract){
+        if (this.contract){
             return;
         }
 
         const api = await getApi((this.config.contractConfig.call as WasmContractCallConfig).wssRpc);
         const metadata = readFileSync(this.config.contractConfig.metadata);
-        this.smartContract = new ContractPromise(api, metadata.toString(), this.config.contractConfig.address);
-        this.signer = new Keyring({ type: 'sr25519' }).addFromUri(seed);
+        this.contract = new ContractPromise(api, metadata.toString(), this.config.contractConfig.address);
+        this.signer = new Keyring({ type: 'sr25519' }).addFromUri(seed_wasm);
     }
 
     public async display() {
@@ -36,27 +36,27 @@ export class RaffleRegistration {
     }
 
     public async getStatus() : Promise<String> {
-        return await query(this.smartContract, 'raffle::getStatus');
+        return await query(this.contract, 'raffle::getStatus');
     }
 
     public async getDrawNumber() : Promise<Number> {
-        return await query(this.smartContract, 'raffle::getDrawNumber');
+        return await query(this.contract, 'raffle::getDrawNumber');
     }
 
     public async getRegistrationContractId() : Promise<Number> {
-        return await query(this.smartContract, 'getRegistrationContractId');
+        return await query(this.contract, 'getRegistrationContractId');
     }
 
     public async registerAttestor(attestor: string) : Promise<void> {
-        const accountId = this.smartContract.api.registry.createType('AccountId', attestor);
-        return await tx(this.smartContract, this.signer, 'registerAttestor', accountId);
+        const accountId = this.contract.api.registry.createType('AccountId', attestor);
+        return await tx(this.contract, this.signer, 'registerAttestor', accountId);
     }
 
     public async hasAttestorRole(attestor: string) : Promise<boolean> {
         const attestorRole = 2852625541;
         //const ROLE_GRANT_ATTESTOR = api.registry.createType('u32', 2852625541);
         //const accountId = this.api.registry.createType('AccountId', attestor);
-        return await query(this.smartContract, 'accessControl::hasRole', attestorRole, attestor);
+        return await query(this.contract, 'accessControl::hasRole', attestorRole, attestor);
     }
 
 }

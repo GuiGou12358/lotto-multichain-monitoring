@@ -72,7 +72,7 @@ const registrationContractMinato = new class implements RegistrationContractConf
     contractConfig = new class implements SmartContractConfig {
         address = '0x83121dDd37aa589C391b5e44bD8f94D978970bBA';
         publicKey = '0x83121dDd37aa589C391b5e44bD8f94D978970bBA';
-        metadata = './abi/RaffleRegistration.json.json';
+        metadata = './abi/RaffleRegistration.json';
         call = minatoConfig;
     }
 }
@@ -82,7 +82,7 @@ const registrationContractMoonbase = new class implements RegistrationContractCo
     contractConfig = new class implements SmartContractConfig {
         address = '0x22bcC50980B8C6bA38DB0E7077B4EB47dd24E351';
         publicKey = '0x22bcC50980B8C6bA38DB0E7077B4EB47dd24E351';
-        metadata = './abi/RaffleRegistration.json.json';
+        metadata = './abi/RaffleRegistration.json';
         call = moonbaseConfig;
     }
 }

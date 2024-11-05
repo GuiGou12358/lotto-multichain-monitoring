@@ -3,7 +3,8 @@ import {config, displayConfiguration, initConfiguration} from './config';
 import {readSeed} from "./seed";
 import {RaffleManager} from './lottoManager';
 import {LottoDraw} from './lottoDraw';
-import {RaffleRegistration} from "./lottoRegistrationWasm";
+import {RaffleRegistrationWasm} from "./lottoRegistrationWasm";
+import {RaffleRegistrationEvm} from "./lottoRegistrationEvm";
 
 const argv = yargs(process.argv.slice(2)).options({
     dc: {alias: 'displayConfiguration', desc: 'Display the configuration (contract and http addresses)'},
@@ -79,25 +80,56 @@ async function run() : Promise<void>{
         }
 
         // Raffle registrations - grant the attestor
-        const raffleRegistration = new RaffleRegistration(config.lottoRegistrations[0]);
-        await raffleRegistration.init();
-        if (! await raffleRegistration.hasAttestorRole(attestEcdsaAddressSubstrate) ) {
-            await raffleRegistration.registerAttestor(attestEcdsaAddressSubstrate);
+        const raffleRegistration0 = new RaffleRegistrationWasm(config.lottoRegistrations[0]);
+        await raffleRegistration0.init();
+        if (! await raffleRegistration0.hasAttestorRole(attestEcdsaAddressSubstrate) ) {
+            await raffleRegistration0.registerAttestor(attestEcdsaAddressSubstrate);
         }
 
+        const raffleRegistration1 = new RaffleRegistrationEvm(config.lottoRegistrations[1]);
+        await raffleRegistration1.init();
+        if (! await raffleRegistration1.hasAttestorRole(attestEcdsaAddressEvm) ) {
+            await raffleRegistration1.registerAttestor(attestEcdsaAddressEvm);
+        }
+
+        const raffleRegistration2 = new RaffleRegistrationEvm(config.lottoRegistrations[2]);
+        await raffleRegistration2.init();
+        if (! await raffleRegistration2.hasAttestorRole(attestEcdsaAddressEvm) ) {
+            await raffleRegistration2.registerAttestor(attestEcdsaAddressEvm);
+        }
     }
 
     if (argv.checks) {
 
         // check the attestor role
-        if (! await raffleManager.hasAttestorRole(attestEcdsaAddressSubstrate) ) {
-            console.error("Attestor not granted in the raffle manager");
+        if (await raffleManager.hasAttestorRole(attestEcdsaAddressSubstrate) ) {
+            console.info("Attestor is granted in the raffle manager");
+        } else {
+            console.error("Attestor is not granted in the raffle manager");
         }
 
-        const raffleRegistration = new RaffleRegistration(config.lottoRegistrations[0]);
-        await raffleRegistration.init();
-        if (! await raffleRegistration.hasAttestorRole(attestEcdsaAddressSubstrate) ) {
-            console.error("Attestor not granted in the registration contract");
+        const raffleRegistration0 = new RaffleRegistrationWasm(config.lottoRegistrations[0]);
+        await raffleRegistration0.init();
+        if (await raffleRegistration0.hasAttestorRole(attestEcdsaAddressSubstrate) ) {
+            console.info("Attestor is granted in the registration contract %", config.lottoRegistrations[0].registrationContractId);
+        }else {
+            console.error("Attestor is not granted in the registration contract %", config.lottoRegistrations[0].registrationContractId);
+        }
+
+        const raffleRegistration1 = new RaffleRegistrationEvm(config.lottoRegistrations[1]);
+        await raffleRegistration1.init();
+        if (await raffleRegistration1.hasAttestorRole(attestEcdsaAddressEvm) ) {
+            console.info("Attestor is granted in the registration contract %", config.lottoRegistrations[1].registrationContractId);
+        }else {
+            console.error("Attestor is not granted in the registration contract %", config.lottoRegistrations[1].registrationContractId);
+        }
+
+        const raffleRegistration2 = new RaffleRegistrationEvm(config.lottoRegistrations[2]);
+        await raffleRegistration2.init();
+        if (await raffleRegistration2.hasAttestorRole(attestEcdsaAddressEvm) ) {
+            console.info("Attestor is granted in the registration contract %", config.lottoRegistrations[2].registrationContractId);
+        }else {
+            console.error("Attestor is not granted in the registration contract %", config.lottoRegistrations[2].registrationContractId);
         }
 
     }
@@ -105,9 +137,18 @@ async function run() : Promise<void>{
     if (argv.display) {
         await raffleManager.display();
 
-        const raffleRegistration = new RaffleRegistration(config.lottoRegistrations[0]);
-        await raffleRegistration.init();
-        await raffleRegistration.display();
+        const raffleRegistration0 = new RaffleRegistrationWasm(config.lottoRegistrations[0]);
+        await raffleRegistration0.init();
+        await raffleRegistration0.display();
+
+        const raffleRegistration1 = new RaffleRegistrationEvm(config.lottoRegistrations[1]);
+        await raffleRegistration1.init();
+        await raffleRegistration1.display();
+
+        const raffleRegistration2 = new RaffleRegistrationEvm(config.lottoRegistrations[2]);
+        await raffleRegistration2.init();
+        await raffleRegistration2.display();
+
         /*
         for (const raffleRegistrationConfig of config.lottoRegistrations){
             const raffleRegistration = new RaffleRegistration(raffleRegistrationConfig);

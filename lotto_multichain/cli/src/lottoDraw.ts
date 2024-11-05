@@ -11,7 +11,7 @@ import {
 import {Keyring} from "@polkadot/api";
 import {KeyringPair} from "@polkadot/keyring/types";
 import {readFileSync} from "fs";
-import {seed} from "./seed";
+import {seed_wasm} from "./seed";
 
 
 export class LottoDraw {
@@ -50,7 +50,7 @@ export class LottoDraw {
           }
         );
 
-        this.signer = new Keyring({ type: 'sr25519' }).addFromUri(seed);
+        this.signer = new Keyring({ type: 'sr25519' }).addFromUri(seed_wasm);
     }
 
     public async synchronize() : Promise<void> {
