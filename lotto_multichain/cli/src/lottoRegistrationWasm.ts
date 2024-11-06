@@ -29,6 +29,11 @@ export class RaffleRegistrationWasm {
     }
 
     public async display() {
+        console.log('Raffle Registration %s - %s - %s',
+          this.config.registrationContractId,
+          this.config.contractConfig.address,
+          (this.config.contractConfig.call as WasmContractCallConfig).wssRpc
+        );
         const status = await this.getStatus();
         const drawNumber = await this.getDrawNumber();
         const registrationContractId = await this.getRegistrationContractId();
@@ -48,6 +53,7 @@ export class RaffleRegistrationWasm {
     }
 
     public async registerAttestor(attestor: string) : Promise<void> {
+        console.log('Raffle Registration %s - Register the attestor %s', this.config.registrationContractId, attestor);
         const accountId = this.contract.api.registry.createType('AccountId', attestor);
         return await tx(this.contract, this.signer, 'registerAttestor', accountId);
     }

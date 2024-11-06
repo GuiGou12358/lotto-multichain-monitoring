@@ -54,6 +54,7 @@ export class LottoDraw {
     }
 
     public async synchronize() : Promise<void> {
+        console.log('Raffle - Synchronise');
         return await query(this.smartContract, 'answerRequest');
     }
 
@@ -94,103 +95,28 @@ export class LottoDraw {
     }
 
     public async configIndexer(url: string) : Promise<void> {
+        console.log('Raffle - Set the indexer');
         return await tx(this.smartContract, this.signer, 'configIndexer', url);
     }
 
     public async setRaffleManager(raffleManagerConfig: SmartContractConfig) : Promise<void> {
-
-        const senderKey = "0xea31cc677ba1c0109cda39829e2f3c00d7ec36ea08b186d2ec906a2bb8849e3d";
+        console.log('Raffle - Set the raffle manager');
+        const senderKey = "0xea31cc677ba1c0109cda39829e2f3c00d7ec36ea08b186d2ec906a2bb8849e3c";
         let config = this.getCallConfig(raffleManagerConfig.call, raffleManagerConfig.publicKey, senderKey);
         return await tx(this.smartContract, this.signer, 'setConfigRaffleManager', config);
 
-/*
-        await query(this.smartContract.query.setConfigRaffleManager, this.signer, config);
-        await signAndSend2(this.client, this.smartContract.tx.setConfigRaffleManager, this.signer, config);
-
- */
-/*
-
-        const gasLimit: WeightV2 = this.client.api.registry.createType('WeightV2',
-          {refTime: 30000000000, proofSize: 1000000}
-        );
-        // a limit to how much Balance to be used to pay for the storage created by the contract call
-        // if null is passed, unlimited balance can be used
-        const storageDepositLimit = null;
-
-        const certificate = await signCertificate({ pair: this.signer });
-
-        const {result, output } =
-          await this.smartContract.query.setConfigRaffleManager(
-            this.signer.address,
-            {cert: certificate},
-            config
-          ) ;
-
-        if (result.isOk){
-            const value : string = output?.toString() ?? '';
-            const res = JSON.parse(value).ok;
-            if (res.err){
-                console.log('query result: %s', value);
-                return Promise.reject("Error when setConfigRaffleManager " + res.err);
-            }
-
-            const tx = this.smartContract.tx.setConfigRaffleManager(
-              { storageDepositLimit, gasLimit },
-              config
-            );
-            await signAndSend(tx, this.signer);
-        } else {
-            console.log('ERROR when setConfigRaffleManager : %s', output);
-            return Promise.reject("ERROR when setConfigRaffleManager " + result.asErr);
-        }
-
- */
     }
 
     public async setRaffleRegistration(raffleRegistrationConfig: RegistrationContractConfig) : Promise<void> {
 
         const registrationContractId = raffleRegistrationConfig.registrationContractId;
+        console.log('Raffle - Set the raffle registration %s', registrationContractId);
+
         const publicKey = raffleRegistrationConfig.contractConfig.publicKey;
-        const senderKey = "0xea31cc677ba1c0109cda39829e2f3c00d7ec36ea08b186d2ec906a2bb8849e3d";
+        const senderKey = "0xea31cc677ba1c0109cda39829e2f3c00d7ec36ea08b186d2ec906a2bb8849e3c";
         let config = this.getCallConfig(raffleRegistrationConfig.contractConfig.call, publicKey, senderKey);
         return await tx(this.smartContract, this.signer, 'setConfigRaffleRegistrations', registrationContractId, config);
 
-/*
-        const gasLimit: WeightV2 = this.client.api.registry.createType('WeightV2',
-          {refTime: 30000000000, proofSize: 1000000}
-        );
-        // a limit to how much Balance to be used to pay for the storage created by the contract call
-        // if null is passed, unlimited balance can be used
-        const storageDepositLimit = null;
-
-        const certificate = await signCertificate({ pair: this.signer });
-
-        const {result, output } =
-          await this.smartContract.query.setConfigRaffleRegistrations(
-            this.signer.address,
-            {cert: certificate},
-            registrationContractId, config
-          ) ;
-
-        if (result.isOk){
-            const value : string = output?.toString() ?? '';
-            const res = JSON.parse(value).ok;
-            if (res.err){
-                console.log('query result: %s', value);
-                return Promise.reject("Error when setConfigRaffleRegistrations " + res.err);
-            }
-
-            const tx = this.smartContract.tx.setConfigRaffleRegistrations(
-              { storageDepositLimit, gasLimit },
-              registrationContractId, config
-            );
-            await signAndSend(tx, this.signer);
-        } else {
-            console.log('ERROR when setConfigRaffleRegistrations : %s', output);
-            return Promise.reject("ERROR when setConfigRaffleRegistrations " + result.asErr);
-        }
-
- */
     }
 
 

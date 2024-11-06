@@ -111,12 +111,12 @@ class TestnetConfig implements Config {
 export let config : Config;
 
 export function initConfiguration(network: string) {
-    console.log('Set config for %s', network);
     if (network == 'testnet'){
         config = new TestnetConfig();
     } else {
         throw new Error("No config for this Network");
     }
+    console.log('Use configuration for %s', network);
 }
 
 function displayRegistrationContractConfig(registrationContractConfig : RegistrationContractConfig){
@@ -128,6 +128,7 @@ function displayRegistrationContractConfig(registrationContractConfig : Registra
 }
 
 export function displayConfiguration(){
+    console.log('Lotto Config: %s', config.raffleConfig);
     console.log('Lotto Manager: %s %s', config.lottoManager.address, config.lottoManager.call);
     console.log('Lotto Draw: %s  { %s }', config.lottoDraw.address, config.lottoDraw.wssRpc);
     config.lottoRegistrations.forEach( (c) => displayRegistrationContractConfig(c));

@@ -21,6 +21,22 @@ export function isDebug() : boolean{
     return argv.debug != undefined;
 }
 
+
+async function displayStatuses() : Promise<void>{
+
+    const raffleRegistration0 = new RaffleRegistrationWasm(config.lottoRegistrations[0]);
+    await raffleRegistration0.init();
+    await raffleRegistration0.display();
+
+    const raffleRegistration1 = new RaffleRegistrationEvm(config.lottoRegistrations[1]);
+    await raffleRegistration1.init();
+    await raffleRegistration1.display();
+
+    const raffleRegistration2 = new RaffleRegistrationEvm(config.lottoRegistrations[2]);
+    await raffleRegistration2.init();
+    await raffleRegistration2.display();
+}
+
 async function run() : Promise<void>{
 
     if (!argv.displayConfiguration && !argv.checks && !argv.display && !argv.configure && !argv.synchronize
@@ -53,7 +69,7 @@ async function run() : Promise<void>{
     console.error("Attestor ECDSA Address for evm contract : " + attestEcdsaAddressEvm);
 
     if (argv.configure) {
-
+/*
         // Raffle manager - set the config
         await raffleManager.setConfig(config.raffleConfig);
 
@@ -68,7 +84,7 @@ async function run() : Promise<void>{
         if (! await raffleManager.hasAttestorRole(attestEcdsaAddressSubstrate) ) {
             await raffleManager.registerAttestor(attestEcdsaAddressSubstrate);
         }
-
+*/
         // lotto draw - set the raffle manager
         await lottoDraw.setRaffleManager(config.lottoManager);
         // lotto draw - set indexer
@@ -136,18 +152,7 @@ async function run() : Promise<void>{
 
     if (argv.display) {
         await raffleManager.display();
-
-        const raffleRegistration0 = new RaffleRegistrationWasm(config.lottoRegistrations[0]);
-        await raffleRegistration0.init();
-        await raffleRegistration0.display();
-
-        const raffleRegistration1 = new RaffleRegistrationEvm(config.lottoRegistrations[1]);
-        await raffleRegistration1.init();
-        await raffleRegistration1.display();
-
-        const raffleRegistration2 = new RaffleRegistrationEvm(config.lottoRegistrations[2]);
-        await raffleRegistration2.init();
-        await raffleRegistration2.display();
+        await displayStatuses();
 
         /*
         for (const raffleRegistrationConfig of config.lottoRegistrations){
@@ -165,11 +170,12 @@ async function run() : Promise<void>{
                 return Promise.reject("Stop the synchronization");
             }
             try {
+                // display the data
+                await raffleManager.display();
+                await displayStatuses();
                 await lottoDraw.synchronize();
                 // wait 30 seconds and read again the status
                 await new Promise(f => setTimeout(f, 10000));
-                // display the data
-                await raffleManager.display();
                 nbErrors = 0;
             } catch (e) {
                 nbErrors +=1;
@@ -178,8 +184,8 @@ async function run() : Promise<void>{
             }
         }
     }
-
 }
+
 
 run().catch(console.error).finally(() => process.exit());
 

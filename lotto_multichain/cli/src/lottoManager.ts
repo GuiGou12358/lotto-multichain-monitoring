@@ -31,6 +31,7 @@ export class RaffleManager {
 
     public async display() {
 
+        console.log('Raffle Manager -  %s - %s', this.config.address, (this.config.call as WasmContractCallConfig).wssRpc);
         const status = await this.getStatus();
         const drawNumber = await this.getDrawNumber();
         console.log('Raffle Manager -  Draw Number: %s - status %s', drawNumber, status);
@@ -54,10 +55,12 @@ export class RaffleManager {
     }
 
     public async setRegistrationContracts(contractIds: Number[]) : Promise<Number[]> {
+        console.log('Raffle Manager - Set the registration contracts');
         return await tx(this.smartContract, this.signer, 'setRegistrationContracts', contractIds);
     }
 
     public async setConfig(config: RaffleConfig) : Promise<Number[]> {
+        console.log('Raffle Manager - Set the config');
         const params = {
             nbNumbers : config.nbNumbers,
             minNumber : config.minNumber,
@@ -67,6 +70,7 @@ export class RaffleManager {
     }
 
     public async registerAttestor(attestor: string) : Promise<void> {
+        console.log('Raffle Manager - Register the attestor');
         const accountId = this.smartContract.api.registry.createType('AccountId', attestor);
         return await tx(this.smartContract, this.signer, 'registerAttestor', accountId);
     }
@@ -79,6 +83,7 @@ export class RaffleManager {
     }
 
     public async closeRegistrations() : Promise<void> {
+        console.log('Raffle Manager - Close the registrations');
         return await tx(this.smartContract, this.signer, 'closeRegistrations');
     }
 

@@ -1,4 +1,4 @@
-import {EvmContractCallConfig, RegistrationContractConfig} from "./config";
+import {EvmContractCallConfig, RegistrationContractConfig, WasmContractCallConfig} from "./config";
 import {ethers, Wallet} from "ethers";
 import {getProvider} from "./evmContractHelper";
 import {Contract} from "ethers/lib.commonjs/contract/contract";
@@ -28,6 +28,11 @@ export class RaffleRegistrationEvm {
     }
 
     public async display() {
+        console.log('Raffle Registration %s - %s - %s',
+          this.config.registrationContractId,
+          this.config.contractConfig.address,
+          (this.config.contractConfig.call as EvmContractCallConfig).rpc
+        );
         const status = await this.getStatus();
         const drawNumber = await this.getDrawNumber();
         const registrationContractId = await this.getRegistrationContractId();
@@ -47,6 +52,7 @@ export class RaffleRegistrationEvm {
     }
 
     public async registerAttestor(attestor: string) : Promise<void> {
+        console.log('Raffle Registration %s - Register the attestor %s', this.config.registrationContractId, attestor);
         const tx = await this.contract.connect(this.signer).registerAttestor(attestor);
         await tx.wait();
     }
