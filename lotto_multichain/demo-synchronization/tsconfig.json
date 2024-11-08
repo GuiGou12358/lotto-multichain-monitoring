@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "module": "CommonJS",
+    "jsx": "preserve",
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+  },
+  "include": ["src/**/*"],
+  "exclude": ["**/*.spec.ts"]
+}
