@@ -1,8 +1,5 @@
 import {ApiPromise, Keyring, WsProvider} from '@polkadot/api';
-import {SubmittableExtrinsic} from '@polkadot/api/types';
-import type {ISubmittableResult} from '@polkadot/types/types';
 import {KeyringPair} from "@polkadot/keyring/types";
-import {setTimeout} from "timers/promises";
 import {ContractPromise} from "@polkadot/api-contract";
 import {signAndSend} from "./txHelper";
 
