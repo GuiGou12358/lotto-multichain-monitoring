@@ -140,10 +140,10 @@ function readResult(result: ISubmittableResult, extrinsicResult: ExtrinsicResult
             let section = event.section;
             console.log(' %s : %s.%s:: %s', phase, section, method, data);
 
-            if (section == 'system' && method == 'ExtrinsicSuccess'){
+            if (section === 'system' && method === 'ExtrinsicSuccess'){
                 extrinsicResult.success = true;
                 return true;
-            } else if (section == 'system' && method == 'ExtrinsicFailed'){
+            } else if (section === 'system' && method === 'ExtrinsicFailed'){
                 extrinsicResult.failed = true;
                 console.log(' %s : %s.%s:: %s', phase, section, method, data);
                 return true;

@@ -22,7 +22,7 @@ export function LegendManagerWorkflow({ cx }) {
 }
 
 
-export function ManagerWorkflow({cx, rpc, address, chain}) {
+export function ManagerWorkflow({cx, rpc, address, explorer, chain}) {
 
   const [status, setStatus] = useState("0");
   const [drawNumber, setDrawNumber] = useState("");
@@ -46,14 +46,16 @@ export function ManagerWorkflow({cx, rpc, address, chain}) {
     return () => {
       clearInterval(backgroundSyncInterval);
     }
-  }, []);
+  }, [rpc, address]);
 
   return (
     <>
-      <text x={cx} y={cy} className="contract">
-        <tspan x={cx - 30} dy={15}>Lotto Manager</tspan>
-        <tspan x={cx - 20} dy={20} fill={"black"}>{chain}</tspan>
-      </text>
+      <a href={explorer+address} target="_blank">
+        <text x={cx} y={cy} className="contract">
+          <tspan x={cx - 30} dy={15}>Lotto Manager</tspan>
+          <tspan x={cx - 20} dy={20} fill={"black"}>{chain}</tspan>
+        </text>
+      </a>
 
       <circle cx={cx} cy={2 * cy} r={r} fill={getStatusColor(status, "NotStarted")}></circle>
       <line x1={cx} y1={2 * cy + r} x2={cx} y2={3 * cy - r - 5} stroke="black" marker-end="url(#arrowhead)"></line>

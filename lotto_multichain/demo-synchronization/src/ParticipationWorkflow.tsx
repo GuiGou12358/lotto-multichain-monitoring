@@ -19,13 +19,15 @@ function getStatusColor(current : string, expected : number){
 }
 
 
-function ParticipationWorkflow({cx, status, drawNumber, chain}) {
+function ParticipationWorkflow({cx, status, drawNumber, chain, explorer, address}) {
   return (
     <>
-      <text x={cx} y={cy} className="contract">
-        <tspan x={cx - 30} dy={15}>Participation</tspan>
-        <tspan x={cx - 20} dy={20} fill={"black"}>{chain}</tspan>
-      </text>
+      <a href={explorer+address} target="_blank">
+        <text x={cx} y={cy} className="contract">
+          <tspan x={cx - 30} dy={15}>Participation</tspan>
+          <tspan x={cx - 20} dy={20} fill={"black"}>{chain}</tspan>
+        </text>
+      </a>
 
       <circle cx={cx} cy={2 * cy} r={r} fill={getStatusColor(status, 0)}></circle>
       <line x1={cx} y1={2 * cy + r} x2={cx} y2={3 * cy - r - 5} stroke="black" marker-end="url(#arrowhead)"></line>
@@ -79,7 +81,7 @@ export function LegendParticipationWorkflow({cx}: { cx: number }) {
   );
 }
 
-export function ParticipationWorkflowWasm({ cx, rpc, address, chain }) {
+export function ParticipationWorkflowWasm({ cx, rpc, address, chain, explorer }) {
 
   const[status, setStatus] = useState("0");
   const[drawNumber, setDrawNumber] = useState("0");
@@ -103,12 +105,12 @@ export function ParticipationWorkflowWasm({ cx, rpc, address, chain }) {
     return () => {
       clearInterval(backgroundSyncInterval);
     }
-  }, []);
+  }, [rpc, address]);
 
-  return ParticipationWorkflow({cx, status, drawNumber, chain});
+  return ParticipationWorkflow({cx, status, drawNumber, chain, address, explorer});
 }
 
-export function ParticipationWorkflowEvm({cx, rpc, address, chain}) {
+export function ParticipationWorkflowEvm({cx, rpc, address, chain, explorer}) {
 
   const[status, setStatus] = useState("0");
   const[drawNumber, setDrawNumber] = useState("0");
@@ -132,7 +134,7 @@ export function ParticipationWorkflowEvm({cx, rpc, address, chain}) {
     return () => {
       clearInterval(backgroundSyncInterval);
     }
-  }, []);
+  }, [rpc, address]);
 
-  return ParticipationWorkflow({cx, status, drawNumber, chain});
+  return ParticipationWorkflow({cx, status, drawNumber, chain, address, explorer});
 }
