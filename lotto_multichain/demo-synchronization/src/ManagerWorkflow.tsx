@@ -100,3 +100,45 @@ export function ManagerWorkflow({cx, rpc, address, explorer, chain}) {
     </>
   );
 }
+
+
+
+export function CloseParticipations({rpc, address}) {
+
+  const [canCloseParticipation, setCanCloseParticipation] = useState(false);
+
+  useEffect(() => {
+    const syncStatusInBackground = async () => {
+      try {
+        const contract = new RaffleManagerWasm(rpc, address);
+        await contract.init();
+        setCanCloseParticipation(await contract.canCloseRegistrations());
+      } catch (e){
+        console.error(e);
+      }
+    };
+
+    const backgroundSyncInterval = setInterval(() => {
+      syncStatusInBackground();
+    }, 15 * 1000); // every 15 seconds
+
+    return () => {
+      clearInterval(backgroundSyncInterval);
+    }
+  }, [rpc, address]);
+
+  const closeParticipation = async () => {
+    try {
+      const contract = new RaffleManagerWasm(rpc, address);
+      await contract.init();
+      await contract.closeRegistrations();
+    } catch (e){
+      console.error(e);
+    }
+  };
+
+  return (
+    <button onClick={closeParticipation} disabled={!canCloseParticipation} >Close Participations</button>
+  );
+}
+

@@ -1,13 +1,15 @@
 import LottoRegistrationMetadata from "./metadata/lotto_registration_contract.json";
 import LottoManagerMetadataWasm from "./metadata/lotto_registration_manager_contract.json";
-import {ApiPromise, WsProvider} from '@polkadot/api';
+import {ApiPromise, Keyring, WsProvider} from '@polkadot/api';
 import {ContractPromise} from "@polkadot/api-contract";
-import {getApi, query} from "./wasmContractHelper";
+import {getApi, query, tx} from "./wasmContractHelper";
+import {KeyringPair} from "@polkadot/keyring/types";
 
 export class RaffleManagerWasm {
 
   private readonly rpc: string;
   private readonly address: string;
+  private signer : KeyringPair;
   private contract: ContractPromise;
 
   public constructor(rpc: string, address: string) {
@@ -21,6 +23,7 @@ export class RaffleManagerWasm {
       return;
     }
     const api = await getApi(this.rpc);
+    this.signer = new Keyring({ type: 'sr25519' }).addFromUri('venture risk wrong bitter job tube lake regular creek spice chalk menu');
     this.contract = new ContractPromise(api, LottoManagerMetadataWasm, this.address);
   }
 
@@ -34,6 +37,23 @@ export class RaffleManagerWasm {
     const drawNumber = await query(this.contract, 'raffleManager::getDrawNumber');
     console.log('Draw Number for manager %s (%s): %s', this.address, this.rpc, drawNumber);
     return drawNumber;
+  }
+
+  public async canCloseRegistrations(): Promise<boolean> {
+    const result = await query(this.contract, 'canCloseRegistrations');
+    console.log('Manager %s can close the registrations: %s', this.address, result);
+    return result;
+  }
+
+  public async closeRegistrations(): Promise<void> {
+    console.log('Raffle Manager - Close the registrations');
+    return await tx(this.contract, this.signer, 'closeRegistrations');
+  }
+
+  public async hasPendingMessage(): Promise<boolean> {
+    const result = await query(this.contract, 'hasPendingMessage');
+    console.log('Manager %s has pending message : %s', this.address, result);
+    return result;
   }
 
 }
