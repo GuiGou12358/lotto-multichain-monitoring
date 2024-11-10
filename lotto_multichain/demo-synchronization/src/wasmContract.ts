@@ -1,6 +1,6 @@
 import LottoRegistrationMetadata from "./metadata/lotto_registration_contract.json";
 import LottoManagerMetadataWasm from "./metadata/lotto_registration_manager_contract.json";
-import {ApiPromise, Keyring, WsProvider} from '@polkadot/api';
+import {Keyring} from '@polkadot/api';
 import {ContractPromise} from "@polkadot/api-contract";
 import {getApi, query, tx} from "./wasmContractHelper";
 import {KeyringPair} from "@polkadot/keyring/types";
@@ -58,6 +58,7 @@ export class RaffleManagerWasm {
 
 }
 
+
 export class RaffleRegistrationWasm {
 
   private readonly rpc: string;
@@ -75,14 +76,7 @@ export class RaffleRegistrationWasm {
       return;
     }
 
-    const api = await ApiPromise.create({provider: new WsProvider(this.rpc)});
-    const [chain, nodeName, nodeVersion] = await Promise.all([
-      api.rpc.system.chain(),
-      api.rpc.system.name(),
-      api.rpc.system.version()
-    ]);
-    console.log('You are connected to chain %s using %s v%s', chain, nodeName, nodeVersion);
-
+    const api = await getApi(this.rpc);
     this.contract = new ContractPromise(api, LottoRegistrationMetadata, this.address);
   }
 

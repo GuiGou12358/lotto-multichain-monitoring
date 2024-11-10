@@ -1,6 +1,8 @@
 import {cy, fillSelected, fillUnselected, fontSize, legendColor, r} from "./constants";
 import {RaffleManagerWasm} from "./wasmContract";
 import {useEffect, useState} from "react";
+import {Button} from "react-native";
+import {LottoDraw} from "./lottoDraw";
 
 function getStatusColor(current : string, expected : string){
     return current === expected ? fillSelected : fillUnselected;
@@ -22,31 +24,40 @@ export function LegendManagerWorkflow({ cx }) {
 }
 
 
-export function ManagerWorkflow({cx, rpc, address, explorer, chain}) {
+export function ManagerWorkflow({cx, rpc, address, explorer, chain, rpcPinkContract, addressPinkContract}) {
 
   const [status, setStatus] = useState("0");
   const [drawNumber, setDrawNumber] = useState("");
 
-  useEffect(() => {
-    const syncStatusInBackground = async () => {
-      try {
-        const contract = new RaffleManagerWasm(rpc, address);
-        await contract.init();
-        setStatus(await contract.getStatus());
-        setDrawNumber(await contract.getDrawNumber());
-      } catch (e){
-        console.error(e);
-      }
-    };
+  const raffleManager = new RaffleManagerWasm(rpc, address);
+  const synchronizer = new LottoDraw(rpcPinkContract, addressPinkContract);
 
+  const syncManagerInBackground = async () => {
+    try {
+      await raffleManager.init();
+      setStatus(await raffleManager.getStatus());
+      setDrawNumber(await raffleManager.getDrawNumber());
+
+      const hasPendingMessage = await raffleManager.hasPendingMessage();
+      if (hasPendingMessage) {
+        await synchronizer.init();
+        await synchronizer.synchronizeContracts();
+      }
+
+    } catch (e){
+      console.error(e);
+    }
+  };
+
+  useEffect(() => {
     const backgroundSyncInterval = setInterval(() => {
-      syncStatusInBackground();
+      syncManagerInBackground();
     }, 15 * 1000); // every 15 seconds
 
     return () => {
       clearInterval(backgroundSyncInterval);
     }
-  }, [rpc, address]);
+  }, []);
 
   return (
     <>
@@ -138,7 +149,7 @@ export function CloseParticipations({rpc, address}) {
   };
 
   return (
-    <button onClick={closeParticipation} disabled={!canCloseParticipation} >Close Participations</button>
+    <Button onPress={closeParticipation} disabled={!canCloseParticipation} title="Close Participations"/>
   );
 }
 

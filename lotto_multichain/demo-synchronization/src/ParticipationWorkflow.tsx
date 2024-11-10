@@ -86,10 +86,11 @@ export function ParticipationWorkflowWasm({ cx, rpc, address, chain, explorer })
   const[status, setStatus] = useState("0");
   const[drawNumber, setDrawNumber] = useState("0");
 
+  const contract = new RaffleRegistrationWasm(rpc, address);
+
   useEffect( () => {
     const syncStatusInBackground = async () => {
       try {
-        const contract = new RaffleRegistrationWasm(rpc, address);
         await contract.init();
         setStatus(await contract.getStatus());
         setDrawNumber(await contract.getDrawNumber());
@@ -115,10 +116,11 @@ export function ParticipationWorkflowEvm({cx, rpc, address, chain, explorer}) {
   const[status, setStatus] = useState("0");
   const[drawNumber, setDrawNumber] = useState("0");
 
+  const contract = new ParticipationEvm(rpc, address);
+
   useEffect( () => {
     const syncStatusInBackground = async () => {
       try {
-        const contract = new ParticipationEvm(rpc, address);
         await contract.init();
         setStatus(await contract.getStatus());
         setDrawNumber(await contract.getDrawNumber());
@@ -134,7 +136,7 @@ export function ParticipationWorkflowEvm({cx, rpc, address, chain, explorer}) {
     return () => {
       clearInterval(backgroundSyncInterval);
     }
-  }, [rpc, address]);
+  }, []);
 
   return ParticipationWorkflow({cx, status, drawNumber, chain, address, explorer});
 }
