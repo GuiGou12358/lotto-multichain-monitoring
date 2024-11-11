@@ -1,5 +1,5 @@
 import './App.css';
-import {CloseParticipations, LegendManagerWorkflow, ManagerWorkflow} from "./ManagerWorkflow";
+import {CloseParticipation, LegendManagerWorkflow, ManagerWorkflow} from "./ManagerWorkflow";
 import {
   LegendParticipationWorkflow,
   ParticipationWorkflowEvm,
@@ -36,7 +36,7 @@ export default function App() {
           <Synchronisation rpcManagerContract={rpcShibuya} addressManagerContract={managerAddress}
                            rpcCommunicatingContract={rpcPhala} addressCommunicatingContract={pinkContractAddress}/>
         </svg>
-        <CloseParticipations rpc={rpcShibuya} address={managerAddress}/>
+        <CloseParticipation rpc={rpcShibuya} address={managerAddress}/>
       </header>
     </div>
   );

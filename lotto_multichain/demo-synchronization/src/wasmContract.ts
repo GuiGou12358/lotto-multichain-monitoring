@@ -29,19 +29,19 @@ export class RaffleManagerWasm {
 
   public async getStatus(): Promise<string> {
     const status = await query(this.contract, 'raffleManager::getStatus');
-    console.log('Status for manager %s (%s): %s', this.address, this.rpc, status);
+    console.debug('Status for manager %s (%s): %s', this.address, this.rpc, status);
     return status;
   }
 
   public async getDrawNumber(): Promise<string> {
     const drawNumber = await query(this.contract, 'raffleManager::getDrawNumber');
-    console.log('Draw Number for manager %s (%s): %s', this.address, this.rpc, drawNumber);
+    console.debug('Draw Number for manager %s (%s): %s', this.address, this.rpc, drawNumber);
     return drawNumber;
   }
 
   public async canCloseRegistrations(): Promise<boolean> {
     const result = await query(this.contract, 'canCloseRegistrations');
-    console.log('Manager %s can close the registrations: %s', this.address, result);
+    console.debug('Manager %s can close the registrations: %s', this.address, result);
     return result;
   }
 
@@ -52,10 +52,18 @@ export class RaffleManagerWasm {
 
   public async hasPendingMessage(): Promise<boolean> {
     const result = await query(this.contract, 'hasPendingMessage');
-    console.log('Manager %s has pending message : %s', this.address, result);
+    console.debug('Manager %s has pending message : %s', this.address, result);
     return result;
   }
 
+  public async getNextClosingRegistrations(): Promise<number> {
+    return await query(this.contract, 'getNextClosingRegistrations');;
+  }
+
+  public async getCurrentBlock(): Promise<number> {
+    const result = await this.contract.api.rpc.chain.getBlock();
+    return result.block.header.number.toNumber();
+  }
 }
 
 

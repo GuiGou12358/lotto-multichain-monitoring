@@ -86,7 +86,7 @@ export async function tx(
         );
         await signAndSend(tx, signer);
     } else {
-        console.log('Error when sending transaction - debugMessage : %s', debugMessage);
+        console.error('Error when sending transaction - debugMessage : %s', debugMessage);
         return Promise.reject("Error when sending transaction " + result.asErr);
     }
 }
@@ -128,10 +128,10 @@ export type ExtrinsicResult = {
 
 function readResult(result: ISubmittableResult, extrinsicResult: ExtrinsicResult) : boolean {
 
-    console.log('Transaction status:', result.status.type);
+    console.debug('Transaction status:', result.status.type);
 
     if (result.status.isInBlock || result.status.isFinalized) {
-        console.log('Transaction hash ', result.txHash.toHex());
+        console.debug('Transaction hash ', result.txHash.toHex());
         extrinsicResult.finalized = result.status.isFinalized;
 
         //result.events.forEach(({ phase, event : {data, method, section}} ) => {
@@ -139,19 +139,19 @@ function readResult(result: ISubmittableResult, extrinsicResult: ExtrinsicResult
             let data = event.data;
             let method = event.method;
             let section = event.section;
-            console.log(' %s : %s.%s:: %s', phase, section, method, data);
+            console.debug(' %s : %s.%s:: %s', phase, section, method, data);
 
             if (section === 'system' && method === 'ExtrinsicSuccess'){
                 extrinsicResult.success = true;
                 return true;
             } else if (section === 'system' && method === 'ExtrinsicFailed'){
                 extrinsicResult.failed = true;
-                console.log(' %s : %s.%s:: %s', phase, section, method, data);
+                console.debug(' %s : %s.%s:: %s', phase, section, method, data);
                 return true;
             }
         });
     } else if (result.isError){
-        console.log('Error');
+        console.debug('Error');
         extrinsicResult.failed = true;
         return true;
     }

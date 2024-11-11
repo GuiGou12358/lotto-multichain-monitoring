@@ -2,12 +2,10 @@ import {cy, fillSelected, fillUnselected, fontSize, legendColor, r} from "./cons
 import {RaffleManagerWasm} from "./wasmContract";
 import {useEffect, useState} from "react";
 import {Button} from "react-native";
-import {LottoDraw} from "./lottoDraw";
 
 function getStatusColor(current : string, expected : string){
     return current === expected ? fillSelected : fillUnselected;
 }
-
 
 export function LegendManagerWorkflow({ cx }) {
   return (
@@ -106,15 +104,19 @@ export function ManagerWorkflow({cx, rpc, address, explorer, chain}) {
 
 
 
-export function CloseParticipations({rpc, address}) {
+export function CloseParticipation({rpc, address}) {
 
   const [enabledButton, enableButton] = useState(false);
+  const [nextClosingRegistrations, setNextClosingRegistrations] = useState(0);
+  const [currentBlock, setCurrentBlock] = useState(0);
 
   const contract = new RaffleManagerWasm(rpc, address);
   const syncDataInBackground = async () => {
     try {
       await contract.init();
       enableButton(await contract.canCloseRegistrations());
+      setNextClosingRegistrations(await contract.getNextClosingRegistrations());
+      setCurrentBlock(await contract.getCurrentBlock());
     } catch (e){
       console.error(e);
     }
@@ -140,6 +142,11 @@ export function CloseParticipations({rpc, address}) {
     }
   };
 
-  return <Button onPress={closeParticipation} disabled={!enabledButton} title="Close Participations" />;
+  return (
+    <>
+      <Button onPress={closeParticipation} disabled={!enabledButton} title="Close Participations" />
+       next closing registration {nextClosingRegistrations} - current Block : {currentBlock}
+    </>
+  );
 }
 
