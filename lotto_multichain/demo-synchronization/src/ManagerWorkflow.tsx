@@ -24,26 +24,18 @@ export function LegendManagerWorkflow({ cx }) {
 }
 
 
-export function ManagerWorkflow({cx, rpc, address, explorer, chain, rpcPinkContract, addressPinkContract}) {
+export function ManagerWorkflow({cx, rpc, address, explorer, chain}) {
 
   const [status, setStatus] = useState("0");
   const [drawNumber, setDrawNumber] = useState("");
 
   const raffleManager = new RaffleManagerWasm(rpc, address);
-  const synchronizer = new LottoDraw(rpcPinkContract, addressPinkContract);
 
-  const syncManagerInBackground = async () => {
+  const syncDataInBackground = async () => {
     try {
       await raffleManager.init();
       setStatus(await raffleManager.getStatus());
       setDrawNumber(await raffleManager.getDrawNumber());
-
-      const hasPendingMessage = await raffleManager.hasPendingMessage();
-      if (hasPendingMessage) {
-        await synchronizer.init();
-        await synchronizer.synchronizeContracts();
-      }
-
     } catch (e){
       console.error(e);
     }
@@ -51,7 +43,7 @@ export function ManagerWorkflow({cx, rpc, address, explorer, chain, rpcPinkContr
 
   useEffect(() => {
     const backgroundSyncInterval = setInterval(() => {
-      syncManagerInBackground();
+      syncDataInBackground();
     }, 15 * 1000); // every 15 seconds
 
     return () => {
@@ -116,13 +108,13 @@ export function ManagerWorkflow({cx, rpc, address, explorer, chain, rpcPinkContr
 
 export function CloseParticipations({rpc, address}) {
 
-  const [canCloseParticipation, setCanCloseParticipation] = useState(false);
+  const [enabledButton, enableButton] = useState(false);
 
   const contract = new RaffleManagerWasm(rpc, address);
   const syncDataInBackground = async () => {
     try {
       await contract.init();
-      setCanCloseParticipation(await contract.canCloseRegistrations());
+      enableButton(await contract.canCloseRegistrations());
     } catch (e){
       console.error(e);
     }
@@ -142,14 +134,12 @@ export function CloseParticipations({rpc, address}) {
     try {
       await contract.init();
       await contract.closeRegistrations();
-      setCanCloseParticipation(false);
+      enableButton(false);
     } catch (e){
       console.error(e);
     }
   };
 
-  return (
-    <Button onPress={closeParticipation} disabled={!canCloseParticipation} title="Close Participations" />
-  );
+  return <Button onPress={closeParticipation} disabled={!enabledButton} title="Close Participations" />;
 }
 

@@ -5,6 +5,7 @@ import {
   ParticipationWorkflowEvm,
   ParticipationWorkflowWasm
 } from "./ParticipationWorkflow";
+import {Synchronisation} from "./Synchronisation";
 
 const rpcShibuya = "wss://rpc.shibuya.astar.network";
 const managerAddress = "XFd4chL4urinkgMmAiTq38cmSa6QdbLJw1hxjghi6WcdgzY";
@@ -20,11 +21,10 @@ export default function App() {
   return (
     <div className="App">
       <header className="App-header">
-        <svg width="1000" height="700">
+        <svg width="1000" height="800">
           <LegendManagerWorkflow cx={0}/>
           <ManagerWorkflow cx={250} rpc={rpcShibuya} address={managerAddress} chain={"Astar testnet"}
                            explorer={"https://shibuya.subscan.io/wasm_contract/"}
-                           rpcPinkContract={rpcPhala} addressPinkContract={pinkContractAddress}
           />
           <ParticipationWorkflowWasm cx={400} rpc={rpcShibuya} address={registration1Address} chain={"Astar testnet"}
                                      explorer={"https://shibuya.subscan.io/wasm_contract/"}/>
@@ -33,6 +33,8 @@ export default function App() {
           <ParticipationWorkflowEvm cx={600} rpc={rpcMinato} address={registration3Address} chain={"Soneium testnet"}
                                     explorer={"https://soneium-minato.blockscout.com/address/"}/>
           <LegendParticipationWorkflow cx={700}/>
+          <Synchronisation rpcManagerContract={rpcShibuya} addressManagerContract={managerAddress}
+                           rpcCommunicatingContract={rpcPhala} addressCommunicatingContract={pinkContractAddress}/>
         </svg>
         <CloseParticipations rpc={rpcShibuya} address={managerAddress}/>
       </header>
