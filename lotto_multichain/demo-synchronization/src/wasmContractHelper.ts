@@ -107,7 +107,7 @@ export async function signAndSend(
           }
       }
     );
-
+/*
     do {
         // wait 10 seconds
         //await setTimeout(10000);
@@ -117,6 +117,7 @@ export async function signAndSend(
     if (extrinsicResult.failed){
         return Promise.reject("ERROR: Extrinsic failed");
     }
+ */
 }
 
 export type ExtrinsicResult = {

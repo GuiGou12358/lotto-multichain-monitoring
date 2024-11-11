@@ -57,11 +57,11 @@ export function ManagerWorkflow({cx, rpc, address, explorer, chain, rpcPinkContr
     return () => {
       clearInterval(backgroundSyncInterval);
     }
-  }, []);
+  });
 
   return (
     <>
-      <a href={explorer+address} target="_blank">
+      <a href={explorer+address} target="_blank" rel="noreferrer noopener">
         <text x={cx} y={cy} className="contract">
           <tspan x={cx - 30} dy={15}>Lotto Manager</tspan>
           <tspan x={cx - 20} dy={20} fill={"black"}>{chain}</tspan>
@@ -118,38 +118,38 @@ export function CloseParticipations({rpc, address}) {
 
   const [canCloseParticipation, setCanCloseParticipation] = useState(false);
 
-  useEffect(() => {
-    const syncStatusInBackground = async () => {
-      try {
-        const contract = new RaffleManagerWasm(rpc, address);
-        await contract.init();
-        setCanCloseParticipation(await contract.canCloseRegistrations());
-      } catch (e){
-        console.error(e);
-      }
-    };
+  const contract = new RaffleManagerWasm(rpc, address);
+  const syncDataInBackground = async () => {
+    try {
+      await contract.init();
+      setCanCloseParticipation(await contract.canCloseRegistrations());
+    } catch (e){
+      console.error(e);
+    }
+  };
 
+  useEffect(() => {
     const backgroundSyncInterval = setInterval(() => {
-      syncStatusInBackground();
+      syncDataInBackground();
     }, 15 * 1000); // every 15 seconds
 
     return () => {
       clearInterval(backgroundSyncInterval);
     }
-  }, [rpc, address]);
+  });
 
   const closeParticipation = async () => {
     try {
-      const contract = new RaffleManagerWasm(rpc, address);
       await contract.init();
       await contract.closeRegistrations();
+      setCanCloseParticipation(false);
     } catch (e){
       console.error(e);
     }
   };
 
   return (
-    <Button onPress={closeParticipation} disabled={!canCloseParticipation} title="Close Participations"/>
+    <Button onPress={closeParticipation} disabled={!canCloseParticipation} title="Close Participations" />
   );
 }
 

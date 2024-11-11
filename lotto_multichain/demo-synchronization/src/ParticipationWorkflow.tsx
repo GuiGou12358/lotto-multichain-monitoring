@@ -22,7 +22,7 @@ function getStatusColor(current : string, expected : number){
 function ParticipationWorkflow({cx, status, drawNumber, chain, explorer, address}) {
   return (
     <>
-      <a href={explorer+address} target="_blank">
+      <a href={explorer+address} target="_blank" rel="noreferrer noopener">
         <text x={cx} y={cy} className="contract">
           <tspan x={cx - 30} dy={15}>Participation</tspan>
           <tspan x={cx - 20} dy={20} fill={"black"}>{chain}</tspan>
@@ -61,7 +61,6 @@ function ParticipationWorkflow({cx, status, drawNumber, chain, explorer, address
       </defs>
       <circle cx={cx} cy={7 * cy} r={r} fill={getStatusColor(status, 4)}></circle>
 
-
       <text x={cx} y={8 * cy} fontSize={fontSize} fill={legendColor}>{drawNumber}</text>
 
     </>
@@ -87,26 +86,25 @@ export function ParticipationWorkflowWasm({ cx, rpc, address, chain, explorer })
   const[drawNumber, setDrawNumber] = useState("0");
 
   const contract = new RaffleRegistrationWasm(rpc, address);
+  const syncDataInBackground = async () => {
+    try {
+      await contract.init();
+      setStatus(await contract.getStatus());
+      setDrawNumber(await contract.getDrawNumber());
+    } catch (e){
+      console.error(e);
+    }
+  };
 
   useEffect( () => {
-    const syncStatusInBackground = async () => {
-      try {
-        await contract.init();
-        setStatus(await contract.getStatus());
-        setDrawNumber(await contract.getDrawNumber());
-      } catch (e){
-        console.error(e);
-      }
-    };
-
     const backgroundSyncInterval = setInterval(() => {
-      syncStatusInBackground();
+      syncDataInBackground();
     }, 15 * 1000); // every 15 seconds
 
     return () => {
       clearInterval(backgroundSyncInterval);
     }
-  }, [rpc, address]);
+  });
 
   return ParticipationWorkflow({cx, status, drawNumber, chain, address, explorer});
 }
@@ -117,26 +115,25 @@ export function ParticipationWorkflowEvm({cx, rpc, address, chain, explorer}) {
   const[drawNumber, setDrawNumber] = useState("0");
 
   const contract = new ParticipationEvm(rpc, address);
+  const syncDataInBackground = async () => {
+    try {
+      await contract.init();
+      setStatus(await contract.getStatus());
+      setDrawNumber(await contract.getDrawNumber());
+    } catch (e){
+      console.error(e);
+    }
+  };
 
   useEffect( () => {
-    const syncStatusInBackground = async () => {
-      try {
-        await contract.init();
-        setStatus(await contract.getStatus());
-        setDrawNumber(await contract.getDrawNumber());
-      } catch (e){
-        console.error(e);
-      }
-    };
-
     const backgroundSyncInterval = setInterval(() => {
-      syncStatusInBackground();
+      syncDataInBackground();
     }, 15 * 1000); // every 15 seconds
 
     return () => {
       clearInterval(backgroundSyncInterval);
     }
-  }, []);
+  });
 
   return ParticipationWorkflow({cx, status, drawNumber, chain, address, explorer});
 }
