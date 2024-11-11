@@ -2,7 +2,7 @@ import {getClient, getContract, PinkContractPromise} from '@phala/sdk';
 import {query, tx} from './pinkContractHelper';
 import {
     ContractCallConfig,
-    EvmContractCallConfig,
+    EvmContractCallConfig, isWasmContract,
     PhalaConfig,
     RegistrationContractConfig,
     SmartContractConfig,
@@ -68,7 +68,7 @@ export class LottoDraw {
 
     private getCallConfig(call: ContractCallConfig, publicKey: string, senderKey: string) : any {
         let config;
-        if ((call as  WasmContractCallConfig).palletId !== undefined) {
+        if (isWasmContract(call)) {
             const callConfig = call as WasmContractCallConfig;
             config =
               {

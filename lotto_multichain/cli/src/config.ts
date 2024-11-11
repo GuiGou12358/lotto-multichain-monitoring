@@ -134,3 +134,6 @@ export function displayConfiguration(){
     config.lottoRegistrations.forEach( (c) => displayRegistrationContractConfig(c));
 }
 
+export function isWasmContract(config: ContractCallConfig) : boolean {
+    return (config as WasmContractCallConfig).palletId !== undefined;
+}

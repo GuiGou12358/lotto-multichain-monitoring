@@ -1,5 +1,5 @@
 import yargs from 'yargs/yargs';
-import {config, displayConfiguration, initConfiguration} from './config';
+import {config, displayConfiguration, initConfiguration, isWasmContract} from './config';
 import {readSeed} from "./seed";
 import {RaffleManager} from './lottoManager';
 import {LottoDraw} from './lottoDraw';
@@ -13,28 +13,23 @@ const argv = yargs(process.argv.slice(2)).options({
     config: {alias: 'configure', desc: 'Configure smart contracts'},
     sync:  {alias: 'synchronize', desc: 'Synchronize the status between smart contracts, draw the numbers, check winners'},
     net: {alias: 'network', choices:['testnet'], type:'string', desc: 'Specify the network', requiresArg: true},
-    d: {alias: 'debug', desc: 'Debug mode: display more information'},
 }).version('0.1').parseSync();
 
 
-export function isDebug() : boolean{
-    return argv.debug != undefined;
-}
-
-
 async function displayStatuses() : Promise<void>{
-
-    const raffleRegistration0 = new RaffleRegistrationWasm(config.lottoRegistrations[0]);
-    await raffleRegistration0.init();
-    await raffleRegistration0.display();
-
-    const raffleRegistration1 = new RaffleRegistrationEvm(config.lottoRegistrations[1]);
-    await raffleRegistration1.init();
-    await raffleRegistration1.display();
-
-    const raffleRegistration2 = new RaffleRegistrationEvm(config.lottoRegistrations[2]);
-    await raffleRegistration2.init();
-    await raffleRegistration2.display();
+    for (const raffleRegistrationConfig of config.lottoRegistrations){
+        if (isWasmContract(raffleRegistrationConfig.contractConfig.call)) {
+            // wasm contract
+            const raffleRegistration = new RaffleRegistrationWasm(raffleRegistrationConfig);
+            await raffleRegistration.init();
+            await raffleRegistration.display();
+        } else {
+            //evm contract
+            const raffleRegistration = new RaffleRegistrationEvm(raffleRegistrationConfig);
+            await raffleRegistration.init();
+            await raffleRegistration.display();
+        }
+    }
 }
 
 async function run() : Promise<void>{
@@ -69,7 +64,7 @@ async function run() : Promise<void>{
     console.error("Attestor ECDSA Address for evm contract : " + attestEcdsaAddressEvm);
 
     if (argv.configure) {
-/*
+
         // Raffle manager - set the config
         await raffleManager.setConfig(config.raffleConfig);
 
@@ -84,7 +79,7 @@ async function run() : Promise<void>{
         if (! await raffleManager.hasAttestorRole(attestEcdsaAddressSubstrate) ) {
             await raffleManager.registerAttestor(attestEcdsaAddressSubstrate);
         }
-*/
+
         // lotto draw - set the raffle manager
         await lottoDraw.setRaffleManager(config.lottoManager);
         // lotto draw - set indexer
@@ -96,22 +91,22 @@ async function run() : Promise<void>{
         }
 
         // Raffle registrations - grant the attestor
-        const raffleRegistration0 = new RaffleRegistrationWasm(config.lottoRegistrations[0]);
-        await raffleRegistration0.init();
-        if (! await raffleRegistration0.hasAttestorRole(attestEcdsaAddressSubstrate) ) {
-            await raffleRegistration0.registerAttestor(attestEcdsaAddressSubstrate);
-        }
-
-        const raffleRegistration1 = new RaffleRegistrationEvm(config.lottoRegistrations[1]);
-        await raffleRegistration1.init();
-        if (! await raffleRegistration1.hasAttestorRole(attestEcdsaAddressEvm) ) {
-            await raffleRegistration1.registerAttestor(attestEcdsaAddressEvm);
-        }
-
-        const raffleRegistration2 = new RaffleRegistrationEvm(config.lottoRegistrations[2]);
-        await raffleRegistration2.init();
-        if (! await raffleRegistration2.hasAttestorRole(attestEcdsaAddressEvm) ) {
-            await raffleRegistration2.registerAttestor(attestEcdsaAddressEvm);
+        for (const raffleRegistrationConfig of config.lottoRegistrations){
+            if (isWasmContract(raffleRegistrationConfig.contractConfig.call)) {
+                // wasm contract
+                const raffleRegistration = new RaffleRegistrationWasm(raffleRegistrationConfig);
+                await raffleRegistration.init();
+                if (! await raffleRegistration.hasAttestorRole(attestEcdsaAddressSubstrate) ) {
+                    await raffleRegistration.registerAttestor(attestEcdsaAddressSubstrate);
+                }
+            } else {
+                //evm contract
+                const raffleRegistration = new RaffleRegistrationEvm(raffleRegistrationConfig);
+                await raffleRegistration.init();
+                if (! await raffleRegistration.hasAttestorRole(attestEcdsaAddressEvm) ) {
+                    await raffleRegistration.registerAttestor(attestEcdsaAddressEvm);
+                }
+            }
         }
     }
 
@@ -124,43 +119,30 @@ async function run() : Promise<void>{
             console.error("Attestor is not granted in the raffle manager");
         }
 
-        const raffleRegistration0 = new RaffleRegistrationWasm(config.lottoRegistrations[0]);
-        await raffleRegistration0.init();
-        if (await raffleRegistration0.hasAttestorRole(attestEcdsaAddressSubstrate) ) {
-            console.info("Attestor is granted in the registration contract %", config.lottoRegistrations[0].registrationContractId);
-        }else {
-            console.error("Attestor is not granted in the registration contract %", config.lottoRegistrations[0].registrationContractId);
+        for (const raffleRegistrationConfig of config.lottoRegistrations){
+            let isGranted = false;
+            if (isWasmContract(raffleRegistrationConfig.contractConfig.call)) {
+                // wasm contract
+                const raffleRegistration = new RaffleRegistrationWasm(raffleRegistrationConfig);
+                await raffleRegistration.init();
+                isGranted = await raffleRegistration.hasAttestorRole(attestEcdsaAddressSubstrate);
+            } else {
+                //evm contract
+                const raffleRegistration = new RaffleRegistrationEvm(raffleRegistrationConfig);
+                await raffleRegistration.init();
+                isGranted = await raffleRegistration.hasAttestorRole(attestEcdsaAddressEvm);
+            }
+            if (isGranted) {
+                console.info("Attestor is granted in the registration contract %", raffleRegistrationConfig.registrationContractId);
+            }else {
+                console.error("Attestor is not granted in the registration contract %", raffleRegistrationConfig.registrationContractId);
+            }
         }
-
-        const raffleRegistration1 = new RaffleRegistrationEvm(config.lottoRegistrations[1]);
-        await raffleRegistration1.init();
-        if (await raffleRegistration1.hasAttestorRole(attestEcdsaAddressEvm) ) {
-            console.info("Attestor is granted in the registration contract %", config.lottoRegistrations[1].registrationContractId);
-        }else {
-            console.error("Attestor is not granted in the registration contract %", config.lottoRegistrations[1].registrationContractId);
-        }
-
-        const raffleRegistration2 = new RaffleRegistrationEvm(config.lottoRegistrations[2]);
-        await raffleRegistration2.init();
-        if (await raffleRegistration2.hasAttestorRole(attestEcdsaAddressEvm) ) {
-            console.info("Attestor is granted in the registration contract %", config.lottoRegistrations[2].registrationContractId);
-        }else {
-            console.error("Attestor is not granted in the registration contract %", config.lottoRegistrations[2].registrationContractId);
-        }
-
     }
 
     if (argv.display) {
         await raffleManager.display();
         await displayStatuses();
-
-        /*
-        for (const raffleRegistrationConfig of config.lottoRegistrations){
-            const raffleRegistration = new RaffleRegistration(raffleRegistrationConfig);
-            await raffleRegistration.init();
-            await raffleRegistration.display();
-        }
-         */
     }
 
     if (argv.synchronize) {
@@ -170,9 +152,10 @@ async function run() : Promise<void>{
                 return Promise.reject("Stop the synchronization");
             }
             try {
-                // display the data
+                // display the status
                 await raffleManager.display();
                 await displayStatuses();
+                // synchronise
                 await lottoDraw.synchronize();
                 // wait 30 seconds and read again the status
                 await new Promise(f => setTimeout(f, 10000));
