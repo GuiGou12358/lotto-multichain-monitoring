@@ -61,8 +61,8 @@ const moonbaseConfig = new class implements EvmContractCallConfig {
 const registrationContractShibuya = new class implements RegistrationContractConfig {
     registrationContractId = 10;
     contractConfig = new class implements SmartContractConfig {
-        address = 'Z3idfVQaj7cV2sdM9Vw2mjJ1Vr5fFPm5RWECQBUQeEHV2L8';
-        publicKey = '0x899a1b887428fc89f78a44c7212ac7ae29db06572ab721c3881b2e8ab9980227';
+        address = 'XYsnkvzKqXcVJgAUYpK8MfWaFiTuCEzbP42L5NGVGXHfNbC';
+        publicKey = '0x475e94f5aded630da4d6e88371f174d729895d95bd130ec6f62b4243456f4c21';
         metadata = './metadata/lotto_registration_contract.json';
         call = shibuyaConfig;
     }
@@ -70,8 +70,8 @@ const registrationContractShibuya = new class implements RegistrationContractCon
 const registrationContractMinato = new class implements RegistrationContractConfig {
     registrationContractId = 11;
     contractConfig = new class implements SmartContractConfig {
-        address = '0x83121dDd37aa589C391b5e44bD8f94D978970bBA';
-        publicKey = '0x83121dDd37aa589C391b5e44bD8f94D978970bBA';
+        address = '0x100389C2bA0A9F22B2bEAa8bC976Ca00e63B3724';
+        publicKey = '0x100389C2bA0A9F22B2bEAa8bC976Ca00e63B3724';
         metadata = './abi/RaffleRegistration.json';
         call = minatoConfig;
     }
@@ -80,8 +80,8 @@ const registrationContractMinato = new class implements RegistrationContractConf
 const registrationContractMoonbase = new class implements RegistrationContractConfig {
     registrationContractId = 12;
     contractConfig = new class implements SmartContractConfig {
-        address = '0x22bcC50980B8C6bA38DB0E7077B4EB47dd24E351';
-        publicKey = '0x22bcC50980B8C6bA38DB0E7077B4EB47dd24E351';
+        address = '0x879A1dd3f4f968dD0b2D54e4d5F08AE41cC318c3';
+        publicKey = '0x879A1dd3f4f968dD0b2D54e4d5F08AE41cC318c3';
         metadata = './abi/RaffleRegistration.json';
         call = moonbaseConfig;
     }
@@ -94,14 +94,14 @@ class TestnetConfig implements Config {
         maxNumber = 50;
     };
     lottoManager = new class implements SmartContractConfig {
-        address = 'XFd4chL4urinkgMmAiTq38cmSa6QdbLJw1hxjghi6WcdgzY';
-        publicKey = '0x3a35d5fd0234b7e95bdee84944628cf0fce976f41492766db87acfe272fef003';
+        address = 'aSAnXcJ2QnrncaMsW4dZXY2vC6XTbvjjBaUhznFNLQoByzL';
+        publicKey = '0xc6f5c7364816ea9b7790bf16bd0a7f51964f41e0de0dfef530ac985f97a5c888';
         metadata = './metadata/lotto_registration_manager_contract.json';
         call = shibuyaConfig;
     };
     lottoDraw = new class implements  PhalaConfig {
         wssRpc = 'wss://poc6.phala.network/ws';
-        address = '0xa59d4b80ad64e34e053575e5ae0f7664f3d0ba3c04e6ea52cb297219f3702a3c';
+        address = '0x2ccd40a7cda610492b1634687a2953ac31c0b7f706d2f55f9ffee9793a7d8e74';
         metadata = "./metadata/lotto_draw_multichain.json";
     };
     lottoRegistrations = [registrationContractShibuya, registrationContractMinato, registrationContractMoonbase];

@@ -133,9 +133,9 @@ async function run() : Promise<void>{
                 isGranted = await raffleRegistration.hasAttestorRole(attestEcdsaAddressEvm);
             }
             if (isGranted) {
-                console.info("Attestor is granted in the registration contract %", raffleRegistrationConfig.registrationContractId);
+                console.info("Attestor is granted in the registration contract %s", raffleRegistrationConfig.registrationContractId);
             }else {
-                console.error("Attestor is not granted in the registration contract %", raffleRegistrationConfig.registrationContractId);
+                console.error("Attestor is not granted in the registration contract %s", raffleRegistrationConfig.registrationContractId);
             }
         }
     }

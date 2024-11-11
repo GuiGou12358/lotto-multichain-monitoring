@@ -8,7 +8,7 @@ export async function getProvider(rpc: string) : Promise<JsonRpcProvider> {
     if (! providers.has(rpc)){
 
         const provider = new ethers.JsonRpcProvider(rpc);
-        console.log('You are connected to chain %s', provider);
+        console.log('You are connected to chain %s', rpc);
         providers.set(rpc, provider);
     }
 
