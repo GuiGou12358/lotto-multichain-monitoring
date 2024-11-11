@@ -170,7 +170,8 @@ pub mod lotto_registration_manager_contract {
         config: config::Data,
         #[storage_field]
         raffle_manager: raffle_manager::Data,
-        block_number_close_registrations: BlockNumber,
+        number_of_blocks_for_participation: BlockNumber,
+        next_closing_registrations: BlockNumber,
     }
 
     impl RaffleConfig for Contract {}
@@ -222,6 +223,17 @@ pub mod lotto_registration_manager_contract {
 
         #[ink(message)]
         #[openbrush::modifiers(access_control::only_role(LOTTO_MANAGER_ROLE))]
+        pub fn set_number_of_blocks_for_participation(
+            &mut self,
+            number_of_blocks_for_participation: BlockNumber,
+        ) -> Result<(), ContractError> {
+            // set the number of blocc when the participation is open
+            self.number_of_blocks_for_participation = number_of_blocks_for_participation;
+            Ok(())
+        }
+
+        #[ink(message)]
+        #[openbrush::modifiers(access_control::only_role(LOTTO_MANAGER_ROLE))]
         pub fn start(&mut self, previous_draw_number: Option<DrawNumber>) -> Result<(), ContractError> {
             // start
             RaffleManager::start(self, previous_draw_number.unwrap_or_default())?;
@@ -248,7 +260,12 @@ pub mod lotto_registration_manager_contract {
 
             // check the block number
             let block_number = self.env().block_number();
-            block_number >= self.block_number_close_registrations
+            block_number >= self.next_closing_registrations
+        }
+
+        #[ink(message)]
+        pub fn get_next_closing_registrations(&self) -> BlockNumber {
+            self.next_closing_registrations
         }
 
         #[ink(message)]
@@ -346,8 +363,8 @@ pub mod lotto_registration_manager_contract {
             // all contracts are synchronized
             // we can close the registration in X block
             let block_number = self.env().block_number();
-            self.block_number_close_registrations = block_number
-                .checked_add(0)
+            self.next_closing_registrations = block_number
+                .checked_add(self.number_of_blocks_for_participation)
                 .ok_or(RaffleError::AddOverFlow)?;
 
             Ok(())

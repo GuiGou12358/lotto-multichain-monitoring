@@ -5,7 +5,6 @@ use crate::types::*;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 use ethabi::{ParamType, Token};
-
 use crate::raffle_registration_contract::{
     RaffleRegistrationContract, RaffleRegistrationStatus, RequestForAction,
 };
@@ -168,13 +167,14 @@ fn maybe_submit_tx(
     Ok(None)
 }
 
-const DRAW_NUMBER: &[u8] = "DRAW_NUMBER".as_bytes();
-const STATUS: &[u8] = "STATUS".as_bytes();
-
 fn get_draw_number(client: &mut EvmRollupClient) -> Result<Option<DrawNumber>, RaffleDrawError> {
+
+    let key  = hex::decode("5f647261774e756d626572")
+        .map_err(|_| FailedToDecodeDrawNumber)?;
+
     let raw_value = client
         .session()
-        .get(DRAW_NUMBER)
+        .get(key.as_slice())
         .log_err("Draw number unknown in kv store")
         .map_err(|_| DrawNumberUnknown)?;
 
@@ -199,9 +199,13 @@ fn decode_draw_number(raw: &[u8]) -> Result<DrawNumber, RaffleDrawError> {
 fn get_status(
     client: &mut EvmRollupClient,
 ) -> Result<Option<RaffleRegistrationStatus>, RaffleDrawError> {
+
+    let key  = hex::decode("5f737461747573")
+        .map_err(|_| FailedToDecodeStatus)?;
+
     let raw_value = client
         .session()
-        .get(STATUS)
+        .get(key.as_slice())
         .log_err("Status unknown in kv store")
         .map_err(|_| StatusUnknown)?;
 
@@ -233,6 +237,7 @@ fn decode_status(raw: &[u8]) -> Result<RaffleRegistrationStatus, RaffleDrawError
 
 #[cfg(test)]
 mod tests {
+    use crate::raffle_registration_contract::RaffleRegistrationStatus::Started;
     use super::*;
 
     #[ink::test]
@@ -383,4 +388,142 @@ mod tests {
         let expected : Vec<u8> = hex::decode("000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000021000000000000000000000000000000000000000000000000000000000000002f00000000000000000000000000000000000000000000000000000000000000050000000000000000000000000000000000000000000000000000000000000006").expect("hex decode failed");
         assert_eq!(expected, array_encoded);
     }
+
+
+    struct EnvVars {
+        evm_config: EvmContractConfig,
+        attestor_key: [u8; 32],
+    }
+
+    fn config() -> EnvVars {
+
+        let rpc = "https://rpc.minato.soneium.org";
+        let contract_id: EvmContractId = hex::decode("6D80a3964360bd8b733449fcc69f2a91A3b70354")
+            .expect("hex decode failed")
+            .try_into()
+            .expect("incorrect length");
+        let sender_key : [u8; 32] = hex::decode("ea31cc677ba1c0109cda39829e2f3c00d7ec36ea08b186d2ec906a2bb8849e3c")
+            .expect("hex decode failed")
+            .try_into()
+            .expect("incorrect length");
+
+        let evm_config = EvmContractConfig {
+            rpc: rpc.to_string(),
+            contract_id,
+            sender_key : Some(sender_key),
+        };
+
+        let attestor_key : [u8; 32] = hex::decode("e032eb4ee274db3bae0c41e17f376f6243ec1f05c142fc803521665e05528e2f")
+            .expect("hex decode failed")
+            .try_into()
+            .expect("incorrect length");
+
+        EnvVars {
+            evm_config,
+            attestor_key,
+        }
+    }
+
+    #[ink::test]
+    #[ignore = "The contract must be deployed on the EVM node"]
+    fn display_info() {
+        pink_extension_runtime::mock_ext::mock_all_ext();
+
+        let config = config();
+        let contract = EvmContract::new(Some(config.evm_config)).expect("Fail to init contract");
+
+        let mut client = contract.connect().expect("Fail to connect");
+
+        let status = get_status(&mut client).expect("Fail to get status");
+        ink::env::debug_println!("status: {status:?}");
+        let draw_number = get_status(&mut client).expect("Fail to get draw number");
+        ink::env::debug_println!("draw_number: {draw_number:?}");
+    }
+
+    fn test_do_action(
+        expected_draw_number: Option<DrawNumber>,
+        expected_status: Option<RaffleRegistrationStatus>,
+        action: RequestForAction,
+    ) {
+
+        let config = config();
+        let contract = EvmContract::new(Some(config.evm_config)).expect("Fail to init contract");
+
+        contract.do_action(
+            expected_draw_number,
+            expected_status,
+            action,
+            &config.attestor_key,
+        ).expect("Fail to do action");
+    }
+
+    #[ink::test]
+    #[ignore = "The contract must be deployed on the EVM node"]
+    fn test_set_config_and_start() {
+        pink_extension_runtime::mock_ext::mock_all_ext();
+
+        let expected_draw_number = None;
+        let expected_status = Some(Started);
+        let config = crate::types::RaffleConfig {
+            nb_numbers: 4,
+            min_number: 1,
+            max_number: 5,
+        };
+        let action = RequestForAction::SetConfigAndStart(config, 33);
+
+        test_do_action(
+            expected_draw_number,
+            expected_status,
+            action,
+        );
+    }
+
+    #[ink::test]
+    #[ignore = "The contract must be deployed on the EVM node"]
+    fn test_open_registrations() {
+        pink_extension_runtime::mock_ext::mock_all_ext();
+
+        let expected_draw_number = Some(1);
+        let expected_status = Some(RaffleRegistrationStatus::RegistrationOpen);
+        let action = RequestForAction::OpenRegistrations(1);
+
+        test_do_action(
+            expected_draw_number,
+            expected_status,
+            action,
+        );
+    }
+
+    #[ink::test]
+    #[ignore = "The contract must be deployed on the EVM node"]
+    fn test_close_registrations() {
+        pink_extension_runtime::mock_ext::mock_all_ext();
+
+        let expected_draw_number = Some(1);
+        let expected_status = Some(RaffleRegistrationStatus::RegistrationClosed);
+        let action = RequestForAction::CloseRegistrations(1);
+
+        test_do_action(
+            expected_draw_number,
+            expected_status,
+            action,
+        );
+    }
+
+    #[ink::test]
+    #[ignore = "The contract must be deployed on the EVM node"]
+    fn test_set_results() {
+        pink_extension_runtime::mock_ext::mock_all_ext();
+
+        let expected_draw_number = Some(1);
+        let expected_status = Some(RaffleRegistrationStatus::ResultsReceived);
+        let action = RequestForAction::SetResults(1, vec![1, 2, 3, 4], vec![]);
+
+        test_do_action(
+            expected_draw_number,
+            expected_status,
+            action,
+        );
+    }
+
 }
