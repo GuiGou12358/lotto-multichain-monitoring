@@ -421,6 +421,28 @@ mod lotto_draw_multichain {
             Ok(synchronized_contracts)
         }
 
+
+        /// Send a request to Manager to close the registrations
+        #[ink(message)]
+        pub fn close_registrations(&self) -> Result<Option<Vec<u8>>> {
+            let config = self.ensure_client_configured()?;
+            let (mut client, sender_key) = match config {
+                ContractConfig::Wasm(config) => (WasmContract::connect(config)?, config.sender_key),
+                ContractConfig::Evm(_config) => {
+                    return Err(ContractError::EvmRaffleManagerNotImplemented)
+                }
+            };
+
+            // TODO check if the manager can do it before sending the tx
+
+            // send the request to the manager
+            client.action(Action::Reply(LottoManagerResponseMessage::CloseRegistrations().encode()));
+
+            let tx = WasmContract::maybe_submit_tx(client, &self.attest_key, sender_key.as_ref())?;
+            ink::env::debug_println!("tx: {tx:02x?}");
+            Ok(tx)
+        }
+
         /// Verify if the winning numbers for a raffle are valid (only for past raffles)
         ///
         #[ink(message)]

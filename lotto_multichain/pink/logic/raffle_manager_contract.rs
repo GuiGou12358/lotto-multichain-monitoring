@@ -66,4 +66,6 @@ pub enum LottoManagerResponseMessage {
     /// arg2: list of contracts where the results are propagated
     /// arg3: hash of results
     ResultsPropagated(DrawNumber, Vec<RegistrationContractId>, Hash),
+    /// Request to close the registrations
+    CloseRegistrations(),
 }
