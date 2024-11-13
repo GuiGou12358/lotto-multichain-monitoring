@@ -152,6 +152,8 @@ pub mod lotto_registration_manager_contract {
         /// arg2: list of contracts where the results are propagated
         /// arg3: hash of results
         ResultsPropagated(DrawNumber, Vec<RegistrationContractId>, Hash),
+        /// Request to close the registrations
+        CloseRegistrations(),
     }
 
     // Contract storage
@@ -221,13 +223,20 @@ pub mod lotto_registration_manager_contract {
             Ok(())
         }
 
+        /// get the number of blocks to wait before closing the participation
+        #[ink(message)]
+        pub fn get_number_of_blocks_for_participation(&self) -> BlockNumber {
+            self.number_of_blocks_for_participation
+        }
+
+        /// set the number of blocks to wait before closing the participation
         #[ink(message)]
         #[openbrush::modifiers(access_control::only_role(LOTTO_MANAGER_ROLE))]
         pub fn set_number_of_blocks_for_participation(
             &mut self,
             number_of_blocks_for_participation: BlockNumber,
         ) -> Result<(), ContractError> {
-            // set the number of blocc when the participation is open
+            // set the number of blocks to wait before closing the participation
             self.number_of_blocks_for_participation = number_of_blocks_for_participation;
             Ok(())
         }
@@ -562,6 +571,11 @@ pub mod lotto_registration_manager_contract {
                 }
                 LottoManagerResponseMessage::Winners(draw_number, winners, _hash) => {
                     self.handle_winners(draw_number, winners)?
+                }
+                LottoManagerResponseMessage::CloseRegistrations() => {
+                    if self.can_close_registrations() {
+                        self.close_registrations()?
+                    }
                 }
             }
 
