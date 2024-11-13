@@ -86,8 +86,8 @@ export function Synchronisation( {rpcManagerContract, addressManagerContract, rp
         Enable synchronisation
       </text>
 
-      <text x="180" y="775" fill="white" fontSize="14">
-        next closing registration {nextClosingRegistrations} - current Block : {currentBlock}
+      <text x="200" y="775" fill="white" fontSize="14">
+        Closing the registration at block {nextClosingRegistrations}  (current block : {currentBlock})
       </text>
     </>
   );
