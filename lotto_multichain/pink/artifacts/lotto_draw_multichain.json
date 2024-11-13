@@ -1,6 +1,6 @@
 {
   "source": {
-    "hash": "0x05a525ed1d5b6f568e0be27f67af2057cda415348e4d50fad0cabf50591d603f",
+    "hash": "0x491ca3da48bb8a57f36327ff687ceb85d4ac94394f8539a660928dcbf451b196",
     "language": "ink! 4.3.0",
     "compiler": "rustc 1.80.1",
     "build_info": {
@@ -436,6 +436,24 @@
           "type": 27
         },
         "selector": "0x2a5bcd75"
+      },
+      {
+        "args": [],
+        "default": false,
+        "docs": [
+          " Send a request to Manager to close the registrations"
+        ],
+        "label": "close_registrations",
+        "mutates": false,
+        "payable": false,
+        "returnType": {
+          "displayName": [
+            "ink",
+            "MessageResult"
+          ],
+          "type": 27
+        },
+        "selector": "0x09bfb935"
       },
       {
         "args": [
