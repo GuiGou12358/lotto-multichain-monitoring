@@ -1,5 +1,5 @@
 import './App.css';
-import {CloseParticipation, LegendManagerWorkflow, ManagerWorkflow} from "./ManagerWorkflow";
+import {LegendManagerWorkflow, ManagerWorkflow} from "./ManagerWorkflow";
 import {
   LegendParticipationWorkflow,
   ParticipationWorkflowEvm,
@@ -8,14 +8,14 @@ import {
 import {Synchronisation} from "./Synchronisation";
 
 const rpcShibuya = "wss://rpc.shibuya.astar.network";
-const managerAddress = "aSAnXcJ2QnrncaMsW4dZXY2vC6XTbvjjBaUhznFNLQoByzL";
-const registration1Address ="XYsnkvzKqXcVJgAUYpK8MfWaFiTuCEzbP42L5NGVGXHfNbC";
+const managerAddress = "WxR8LgRfZj74duZuxEhLmFYXjmAB3DRzZuM2sd51An7NvfB";
+const registration1Address ="XWfadAkwxCUXAgWsGhC6o5ckLh62AYerLjhkpyHoZf7pfMr";
 const rpcMoonbase = "https://rpc.api.moonbase.moonbeam.network";
-const registration2Address = "0x879A1dd3f4f968dD0b2D54e4d5F08AE41cC318c3";
+const registration2Address = "0xACDCb69F2C7C1F56C693244F6F5c004A56D3e7E3";
 const rpcMinato = "https://rpc.minato.soneium.org";
-const registration3Address = "0x100389C2bA0A9F22B2bEAa8bC976Ca00e63B3724";
+const registration3Address = "0x45e6301df1d152C7c048EECAFA658E88fD5A5897";
 const rpcPhala = "wss://poc6.phala.network/ws";
-const pinkContractAddress = "0x2ccd40a7cda610492b1634687a2953ac31c0b7f706d2f55f9ffee9793a7d8e74";
+const pinkContractAddress = "0xc8950613bfd19463ca39d8508c30cbbf310091569de0edf91d429923adbf9929";
 
 export default function App() {
   return (
@@ -36,7 +36,6 @@ export default function App() {
           <Synchronisation rpcManagerContract={rpcShibuya} addressManagerContract={managerAddress}
                            rpcCommunicatingContract={rpcPhala} addressCommunicatingContract={pinkContractAddress}/>
         </svg>
-        <CloseParticipation rpc={rpcShibuya} address={managerAddress}/>
       </header>
     </div>
   );

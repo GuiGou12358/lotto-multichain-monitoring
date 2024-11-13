@@ -1,7 +1,6 @@
 import {cy, fillSelected, fillUnselected, fontSize, legendColor, r} from "./constants";
 import {RaffleManagerWasm} from "./wasmContract";
 import {useEffect, useState} from "react";
-import {Button} from "react-native";
 
 function getStatusColor(current : string, expected : string){
     return current === expected ? fillSelected : fillUnselected;
@@ -98,54 +97,6 @@ export function ManagerWorkflow({cx, rpc, address, explorer, chain}) {
       <circle cx={cx} cy={7 * cy} r={r} fill={getStatusColor(status, "Closed")}></circle>
 
       <text x={cx} y={8 * cy} fontSize={fontSize} fill={legendColor}>{drawNumber}</text>
-    </>
-  );
-}
-
-
-
-export function CloseParticipation({rpc, address}) {
-
-  const [enabledButton, enableButton] = useState(false);
-  const [nextClosingRegistrations, setNextClosingRegistrations] = useState(0);
-  const [currentBlock, setCurrentBlock] = useState(0);
-
-  const contract = new RaffleManagerWasm(rpc, address);
-  const syncDataInBackground = async () => {
-    try {
-      await contract.init();
-      enableButton(await contract.canCloseRegistrations());
-      setNextClosingRegistrations(await contract.getNextClosingRegistrations());
-      setCurrentBlock(await contract.getCurrentBlock());
-    } catch (e){
-      console.error(e);
-    }
-  };
-
-  useEffect(() => {
-    const backgroundSyncInterval = setInterval(() => {
-      syncDataInBackground();
-    }, 15 * 1000); // every 15 seconds
-
-    return () => {
-      clearInterval(backgroundSyncInterval);
-    }
-  });
-
-  const closeParticipation = async () => {
-    try {
-      await contract.init();
-      await contract.closeRegistrations();
-      enableButton(false);
-    } catch (e){
-      console.error(e);
-    }
-  };
-
-  return (
-    <>
-      <Button onPress={closeParticipation} disabled={!enabledButton} title="Close Participations" />
-       next closing registration {nextClosingRegistrations} - current Block : {currentBlock}
     </>
   );
 }

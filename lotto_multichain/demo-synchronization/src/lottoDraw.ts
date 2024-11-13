@@ -46,6 +46,11 @@ export class LottoDraw {
         return await query(this.contract, 'answerRequest');
     }
 
+    public async closeRegistrations() : Promise<void> {
+        console.log('Raffle - Close registrations');
+        return await query(this.contract, 'closeRegistrations');
+    }
+
 }
 
 export async function query(
