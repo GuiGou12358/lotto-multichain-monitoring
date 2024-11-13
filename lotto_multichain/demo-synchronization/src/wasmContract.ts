@@ -1,15 +1,12 @@
 import LottoRegistrationMetadata from "./metadata/lotto_registration_contract.json";
 import LottoManagerMetadataWasm from "./metadata/lotto_registration_manager_contract.json";
-import {Keyring} from '@polkadot/api';
 import {ContractPromise} from "@polkadot/api-contract";
-import {getApi, query, tx} from "./wasmContractHelper";
-import {KeyringPair} from "@polkadot/keyring/types";
+import {getApi, query} from "./wasmContractHelper";
 
 export class RaffleManagerWasm {
 
   private readonly rpc: string;
   private readonly address: string;
-  private signer : KeyringPair;
   private contract: ContractPromise;
 
   public constructor(rpc: string, address: string) {
@@ -23,7 +20,6 @@ export class RaffleManagerWasm {
       return;
     }
     const api = await getApi(this.rpc);
-    this.signer = new Keyring({ type: 'sr25519' }).addFromUri('venture risk wrong bitter job tube lake regular creek spice chalk menu');
     this.contract = new ContractPromise(api, LottoManagerMetadataWasm, this.address);
   }
 
@@ -43,11 +39,6 @@ export class RaffleManagerWasm {
     const result = await query(this.contract, 'canCloseRegistrations');
     console.debug('Manager %s can close the registrations: %s', this.address, result);
     return result;
-  }
-
-  public async closeRegistrations(): Promise<void> {
-    console.log('Raffle Manager - Close the registrations');
-    return await tx(this.contract, this.signer, 'closeRegistrations');
   }
 
   public async hasPendingMessage(): Promise<boolean> {
