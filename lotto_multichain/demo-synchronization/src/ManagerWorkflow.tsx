@@ -14,7 +14,7 @@ export function LegendManagerWorkflow({ cx }) {
       <text x={cx} y={4 * cy + 7} fontSize={fontSize} fill={legendColor}>Registrations open</text>
       <text x={cx} y={5 * cy + 7} fontSize={fontSize} fill={legendColor}>Registrations closed</text>
       <text x={cx} y={6 * cy + 7} fontSize={fontSize} fill={legendColor}>Lotto draw done - checking winners</text>
-      <text x={cx} y={7 * cy + 7} fontSize={fontSize} fill={legendColor}>Results received</text>
+      <text x={cx} y={7 * cy + 7} fontSize={fontSize} fill={legendColor}>Results known</text>
       <text x={cx} y={8 * cy} fontSize={fontSize} fill={legendColor}>Draw Number</text>
     </>
   );

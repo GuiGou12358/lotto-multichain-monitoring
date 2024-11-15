@@ -75,7 +75,7 @@ export function LegendParticipationWorkflow({cx}: { cx: number }) {
       <text x={cx} y={3 * cy + 7} fontSize={fontSize} fill={legendColor}>Configured</text>
       <text x={cx} y={4 * cy + 7} fontSize={fontSize} fill={legendColor}>Registrations open (the user can participate)</text>
       <text x={cx} y={5 * cy + 7} fontSize={fontSize} fill={legendColor}>Registrations closed</text>
-      <text x={cx} y={7 * cy + 7} fontSize={fontSize} fill={legendColor}>Results received (check consistency)</text>
+      <text x={cx} y={7 * cy + 7} fontSize={fontSize} fill={legendColor}>Results known</text>
     </>
   );
 }
