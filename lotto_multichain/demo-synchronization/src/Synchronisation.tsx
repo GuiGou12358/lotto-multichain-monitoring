@@ -2,7 +2,7 @@ import {useEffect, useState} from "react";
 import {RaffleManagerWasm} from "./wasmContract";
 import {LottoDraw} from "./lottoDraw";
 
-export function Synchronisation( {rpcManagerContract, addressManagerContract, rpcCommunicatingContract, addressCommunicatingContract }
+export function Synchronisation( {rpcManagerContract, addressManagerContract, rpcCommunicatingContract, addressCommunicatingContract, explorerCommunicatingContract }
 ) {
 
   const [isEnabledSynchronization, enableSynchronization] = useState(false);
@@ -77,7 +77,11 @@ export function Synchronisation( {rpcManagerContract, addressManagerContract, rp
           : inProgress ? "Synchronisation in progress - communication with smart contracts"
             : "Waiting synchronisation"}
       </text>
-
+      <a href={explorerCommunicatingContract + addressCommunicatingContract} target="_blank" rel="noreferrer noopener">
+        <text x="830" y="740" fill="black" fontSize="14" textAnchor="middle" dominantBaseline="middle">
+          Via a contract on Phala testnet
+        </text>
+      </a>
       <rect x="720" y="710" width="20" height="20" fill="white" stroke={"black"}
             onClick={enableSynchronisation}/>
       <path d="M722 715 L732 725 L740 710" stroke={isEnabledSynchronization ? "black" : "none"} strokeWidth="3"
@@ -85,9 +89,11 @@ export function Synchronisation( {rpcManagerContract, addressManagerContract, rp
       <text x="750" y="725" fill="white" fontSize="14">
         Enable synchronisation
       </text>
-
       <text x="200" y="775" fill="white" fontSize="14">
-        Closing the registration in {currentBlock - nextClosingRegistrations} blocks (ie at block: {nextClosingRegistrations}, current block: {currentBlock})
+        Closing the registration
+        in {nextClosingRegistrations > currentBlock ? nextClosingRegistrations - currentBlock : '-'} blocks (ie at
+        block: {nextClosingRegistrations > currentBlock ? nextClosingRegistrations : '-'}, current
+        block: {currentBlock})
       </text>
     </>
   );
