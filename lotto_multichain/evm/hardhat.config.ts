@@ -5,6 +5,7 @@ const MINATO_OWNER_PRIVATE_KEY = vars.get("LOTTO_MINATO_OWNER_KEY");
 const MINATO_EVM_ATTESTOR_PK = vars.get("LOTTO_MINATO_ATTESTOR_KEY");
 const MINATO_USER1_PRIVATE_KEY = vars.get("LOTTO_MINATO_USER1_KEY");
 const MINATO_USER2_PRIVATE_KEY = vars.get("LOTTO_MINATO_USER2_KEY");
+const MOONBASE_API_KEY = vars.get("MOONBASE_API_KEY");
 
 task("accounts", "Prints the list of accounts", async (_taskArgs, hre) => {
   const accounts = await hre.ethers.getSigners();
@@ -57,7 +58,7 @@ const config: HardhatUserConfig = {
   etherscan: {
     apiKey: {
       'minato': 'empty',
-      'moonbase': 'empty',
+      'moonbase': MOONBASE_API_KEY,
       'shibuya': 'empty',
       'base-sepolia': 'empty'
     },
@@ -66,15 +67,15 @@ const config: HardhatUserConfig = {
         network: "minato",
         chainId: 1946,
         urls: {
-          apiURL: "https://explorer-testnet.soneium.org/api",
-          browserURL: "https://explorer-testnet.soneium.org"
+          apiURL: "https://soneium-minato.blockscout.com/api",
+          browserURL: "https://soneium-minato.blockscout.com"
         }
       },
       {
         network: "moonbase",
         chainId: 1287,
         urls: {
-          apiURL: "https://moonbase.moonscan.io/api",
+          apiURL: "https://api-moonbase.moonscan.io/api",
           browserURL: "https://moonbase.moonscan.io"
         }
       },
@@ -82,8 +83,8 @@ const config: HardhatUserConfig = {
         network: "shibuya",
         chainId: 81,
         urls: {
-          apiURL: "https://blockscout.com/shibuya/api/eth-rpc",
-          browserURL: "https://blockscout.com/shibuya"
+          apiURL: "https://shibuya.blockscout.com/api",
+          browserURL: "https://shibuya.blockscout.com",
         }
       },
       {
