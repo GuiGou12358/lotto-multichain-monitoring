@@ -27,3 +27,7 @@
 /lotto_multichain/evm/cache/
 /lotto_multichain/evm/coverage.json
 /lotto_multichain/evm/package-lock.json
+/lotto_multichain/cli/.env
+/lotto_multichain/cli/.secret-testnet-evm
+/lotto_multichain/cli/.secret-testnet-wasm
+/lotto_multichain/pink/contract/.env
