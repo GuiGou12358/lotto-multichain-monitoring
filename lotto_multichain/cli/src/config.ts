@@ -80,8 +80,8 @@ const registrationContractMinato = new class implements RegistrationContractConf
 const registrationContractMoonbase = new class implements RegistrationContractConfig {
     registrationContractId = 12;
     contractConfig = new class implements SmartContractConfig {
-        address = '0xA8AE9c3F7bc784Ccd1E6013c59A233600C6dE90A';
-        publicKey = '0xA8AE9c3F7bc784Ccd1E6013c59A233600C6dE90A';
+        address = '0x991926D5ca21EF2938B5BAffbf4EC24fB55e205e';
+        publicKey = '0x991926D5ca21EF2938B5BAffbf4EC24fB55e205e';
         metadata = './abi/RaffleRegistration.json';
         call = moonbaseConfig;
     }
