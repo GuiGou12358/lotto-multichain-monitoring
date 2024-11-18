@@ -8,14 +8,14 @@ import {
 import {Synchronisation} from "./Synchronisation";
 
 const rpcShibuya = "wss://rpc.shibuya.astar.network";
-const managerAddress = "bLQBJHeqGUPS1zJgGeEG4yR9pGfom4Sr5j1QSnoGveH86Rz";
-const registration1Address ="ZEDzKmBFeCPpjyfTt7aHVVBfM8Cu8i8psj2Z7TEsgnXTBLq";
+const managerAddress = "YuCwFXie1QX7pPyvL8dHYGCX6gpCPB4aWchzb2bSYSgdrvu";
+const registration1Address ="ZkMmwcAsCuFPB13kfXH6aQiJYAfnQYC2qMiK5h1mGKsMX86";
 const rpcMoonbase = "https://rpc.api.moonbase.moonbeam.network";
-const registration2Address = "0x100389C2bA0A9F22B2bEAa8bC976Ca00e63B3724";
+const registration2Address = "0x991926D5ca21EF2938B5BAffbf4EC24fB55e205e";
 const rpcMinato = "https://rpc.minato.soneium.org";
-const registration3Address = "0xcB40e3F70c591A230Ce2E263C07682fDd8a784E9";
+const registration3Address = "0xA8AE9c3F7bc784Ccd1E6013c59A233600C6dE90A";
 const rpcPhala = "wss://poc6.phala.network/ws";
-const pinkContractAddress = "0xc8950613bfd19463ca39d8508c30cbbf310091569de0edf91d429923adbf9929";
+const pinkContractAddress = "0x49badf682da735bee55e1098414edbd993f3500893b35cadd2d610bc961b0d33";
 
 export default function App() {
   return (
