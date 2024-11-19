@@ -1,6 +1,27 @@
-import {getClient, getContract, PinkContractPromise, signCertificate} from '@phala/sdk';
+import {getClient, getContract, OnChainRegistry, PinkContractPromise, signCertificate} from '@phala/sdk';
 import {Keyring} from "@polkadot/api";
 import LottoDrawMetadataWasm from "./metadata/lotto_draw_multichain.json";
+
+const clients = new Map();
+
+export async function reuseClient(rpc: string) : Promise<OnChainRegistry> {
+
+    if (! clients.has(rpc)){
+
+        const client = await getClient({
+            transport: rpc
+        });
+        const[chain, nodeName, nodeVersion] = await Promise.all([
+            client.api.rpc.system.chain(),
+            client.api.rpc.system.name(),
+            client.api.rpc.system.version()
+        ]);
+        console.log('You are connected to chain %s using %s v%s', chain, nodeName, nodeVersion);
+        clients.set(rpc, client);
+    }
+
+    return clients.get(rpc);
+}
 
 
 export class LottoDraw {
@@ -20,16 +41,7 @@ export class LottoDraw {
             return;
         }
 
-        const client = await getClient({
-            transport: this.rpc
-        });
-
-        const[chain, nodeName, nodeVersion] = await Promise.all([
-            client.api.rpc.system.chain(),
-            client.api.rpc.system.name(),
-            client.api.rpc.system.version()
-        ]);
-        console.log('You are connected to chain %s using %s v%s', chain, nodeName, nodeVersion);
+        const client = await reuseClient(this.rpc);
 
         this.contract = await getContract({
             client,
