@@ -23,7 +23,7 @@ export function LegendManagerWorkflow({ cx }) {
 
 export function ManagerWorkflow({cx, rpc, address, explorer, chain}) {
 
-  const [status, setStatus] = useState("0");
+  const [status, setStatus] = useState("");
   const [drawNumber, setDrawNumber] = useState("");
 
   const raffleManager = new RaffleManagerWasm(rpc, address);
