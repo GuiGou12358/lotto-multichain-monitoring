@@ -81,13 +81,13 @@ export class RaffleRegistrationWasm {
 
   public async getStatus(): Promise<string> {
     const json = await query(this.contract, 'raffle::getStatus');
-    console.log('Status for %s (%s): %s', this.address, this.rpc, json);
+    console.log('Status for %s (%s): %s', this.address, this.rpc, json.ok);
     return json.ok;
   }
 
   public async getDrawNumber(): Promise<string> {
     const json = await query(this.contract, 'raffle::getDrawNumber');
-    console.log('Draw Number for %s (%s): %s', this.address, this.rpc, json);
+    console.log('Draw Number for %s (%s): %s', this.address, this.rpc, json.ok);
     return json.ok;
   }
 }
