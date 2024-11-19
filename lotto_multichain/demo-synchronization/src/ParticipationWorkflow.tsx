@@ -82,8 +82,8 @@ export function LegendParticipationWorkflow({cx}: { cx: number }) {
 
 export function ParticipationWorkflowWasm({ cx, rpc, address, chain, explorer }) {
 
-  const[status, setStatus] = useState("0");
-  const[drawNumber, setDrawNumber] = useState("0");
+  const[status, setStatus] = useState("");
+  const[drawNumber, setDrawNumber] = useState("");
 
   const contract = new RaffleRegistrationWasm(rpc, address);
   const syncDataInBackground = async () => {
@@ -111,8 +111,8 @@ export function ParticipationWorkflowWasm({ cx, rpc, address, chain, explorer })
 
 export function ParticipationWorkflowEvm({cx, rpc, address, chain, explorer}) {
 
-  const[status, setStatus] = useState("0");
-  const[drawNumber, setDrawNumber] = useState("0");
+  const[status, setStatus] = useState("");
+  const[drawNumber, setDrawNumber] = useState("");
 
   const contract = new ParticipationEvm(rpc, address);
   const syncDataInBackground = async () => {
