@@ -26,13 +26,13 @@ export class ParticipationEvm {
 
   public async getStatus(): Promise<string> {
     const status = await this.contract.getStatus();
-    console.debug('Status for %s (%s): %s', this.address, this.rpc, status);
+    console.debug('Status for %s (%s): %s', this.address, this.rpc, status.toString());
     return status.toString();
   }
 
   public async getDrawNumber(): Promise<string> {
     const drawNumber = await this.contract.getDrawNumber();
-    console.debug('Draw Number for %s (%s): %s', this.address, this.rpc, drawNumber);
+    console.debug('Draw Number for %s (%s): %s', this.address, this.rpc, drawNumber.toString());
     return drawNumber.toString();
   }
 }
