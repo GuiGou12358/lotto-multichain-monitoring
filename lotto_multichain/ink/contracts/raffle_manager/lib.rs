@@ -201,7 +201,7 @@ pub mod lotto_registration_manager_contract {
         #[openbrush::modifiers(access_control::only_role(LOTTO_MANAGER_ROLE))]
         pub fn set_config(&mut self, config: Config) -> Result<(), ContractError> {
             // check the status, we can set the config only when the raffle is not started yet
-            let status = RaffleManager::get_status(self);
+            let status = RaffleManager::get_status(self)?;
             if status != Status::NotStarted {
                 return Err(ContractError::RaffleError(RaffleError::IncorrectStatus));
             }
@@ -243,7 +243,10 @@ pub mod lotto_registration_manager_contract {
 
         #[ink(message)]
         #[openbrush::modifiers(access_control::only_role(LOTTO_MANAGER_ROLE))]
-        pub fn start(&mut self, previous_draw_number: Option<DrawNumber>) -> Result<(), ContractError> {
+        pub fn start(
+            &mut self,
+            previous_draw_number: Option<DrawNumber>,
+        ) -> Result<(), ContractError> {
             // start
             RaffleManager::start(self, previous_draw_number.unwrap_or_default())?;
             // propagate the config in all given contracts
@@ -311,7 +314,7 @@ pub mod lotto_registration_manager_contract {
         ) -> Result<(), ContractError> {
             let not_synchronized_contracts = RaffleManager::save_registration_contracts_status(
                 self,
-                RaffleManager::get_draw_number(self),
+                RaffleManager::get_draw_number(self)?,
                 Status::Started,
                 registration_contracts,
             )?;

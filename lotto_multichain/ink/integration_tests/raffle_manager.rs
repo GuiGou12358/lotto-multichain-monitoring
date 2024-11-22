@@ -308,6 +308,7 @@ async fn get_draw_number(
         .call_dry_run(&ink_e2e::alice(), &get_draw_number, 0, None)
         .await
         .return_value()
+        .expect("fail to get the draw number")
 }
 
 async fn get_manager_status(
@@ -322,6 +323,7 @@ async fn get_manager_status(
         .call_dry_run(&ink_e2e::alice(), &get_status, 0, None)
         .await
         .return_value()
+        .expect("fail to get the status")
 }
 
 async fn can_close_registrations(

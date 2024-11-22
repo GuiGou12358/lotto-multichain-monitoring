@@ -3,12 +3,15 @@ use crate::{DrawNumber, Number, RegistrationContractId};
 use ink::prelude::vec::Vec;
 use ink::storage::Mapping;
 use openbrush::traits::{AccountId, Storage};
+use phat_rollup_anchor_ink::traits::rollup_anchor::RollupAnchor;
+use scale::{Decode, Encode};
+
+const STATUS: u32 = ink::selector_id!("STATUS");
+const DRAW_NUMBER: u32 = ink::selector_id!("DRAW_NUMBER");
 
 #[derive(Default, Debug)]
 #[openbrush::storage_item]
 pub struct Data {
-    draw_number: DrawNumber,
-    status: Status,
     registration_contracts: Vec<RegistrationContractId>,
     registration_contracts_status: Mapping<RegistrationContractId, Status>,
     results: Mapping<DrawNumber, Vec<Number>>,
@@ -32,7 +35,7 @@ pub enum Status {
 }
 
 #[openbrush::trait_definition]
-pub trait RaffleManager: Storage<Data> {
+pub trait RaffleManager: Storage<Data> + RollupAnchor {
 
     /// Set the regisration contracts
     fn set_registration_contracts(
@@ -59,8 +62,8 @@ pub trait RaffleManager: Storage<Data> {
         // check the status
         self.check_registration_contracts_status(Status::NotStarted)?;
 
-        self.data::<Data>().draw_number = previous_draw_number;
-        self.data::<Data>().status = Status::Started;
+        self.set_draw_number(previous_draw_number);
+        self.set_status(Status::Started);
 
         Ok(())
     }
@@ -68,23 +71,20 @@ pub trait RaffleManager: Storage<Data> {
     /// Open the registrations
     fn open_registrations(&mut self) -> Result<DrawNumber, RaffleError> {
         // check the status
-        if self.data::<Data>().status != Status::Started
-            && self.data::<Data>().status != Status::Closed
-        {
+        let status = self.get_status()?;
+        if status != Status::Started && status != Status::Closed {
             return Err(IncorrectStatus);
         }
         // check the status
-        self.check_registration_contracts_status(self.get_status())?;
+        self.check_registration_contracts_status(status)?;
 
         // increment the draw number
-        let new_draw_number = self
-            .data::<Data>()
-            .draw_number
+        let new_draw_number = self.get_draw_number()?
             .checked_add(1)
             .ok_or(AddOverFlow)?;
-
-        self.data::<Data>().draw_number = new_draw_number;
-        self.data::<Data>().status = Status::RegistrationsOpen;
+    
+        self.set_draw_number(new_draw_number);
+        self.set_status(Status::RegistrationsOpen);
 
         Ok(new_draw_number)
     }
@@ -101,15 +101,15 @@ pub trait RaffleManager: Storage<Data> {
         self.check_registration_contracts_status(Status::RegistrationsOpen)?;
 
         // update the status
-        self.data::<Data>().status = Status::RegistrationsClosed;
-        Ok(self.data::<Data>().draw_number)
+        self.set_status(Status::RegistrationsClosed);
+        Ok(self.get_draw_number()?)
     }
 
     /// Save the status for given registration contracts
     /// return the contracts not synchronized yet
     fn check_registration_contracts_status(&self, status: Status) -> Result<(), RaffleError> {
         // check the status in the manager
-        if self.data::<Data>().status != status {
+        if self.get_status()? != status {
             return Err(IncorrectStatus);
         }
 
@@ -137,11 +137,11 @@ pub trait RaffleManager: Storage<Data> {
         registration_contracts: Vec<RegistrationContractId>,
     ) -> Result<Vec<RegistrationContractId>, RaffleError> {
         // check the status
-        if self.data::<Data>().status != status {
+        if self.get_status()? != status {
             return Err(IncorrectStatus);
         }
         // check the draw number
-        if self.data::<Data>().draw_number != draw_number {
+        if self.get_draw_number()? != draw_number {
             return Err(IncorrectDrawNumber);
         }
 
@@ -169,13 +169,27 @@ pub trait RaffleManager: Storage<Data> {
     }
 
     #[ink(message)]
-    fn get_draw_number(&self) -> DrawNumber {
-        self.data::<Data>().draw_number
+    fn get_draw_number(&self) -> Result<DrawNumber, RaffleError> {
+        match RollupAnchor::get_value(self, DRAW_NUMBER.encode()) {
+            Some(v) => DrawNumber::decode(&mut v.as_slice()).map_err(|_| FailedToDecode),
+            _ => Ok(0),
+        }
+    }
+
+    fn set_draw_number(&mut self, draw_number: DrawNumber) {
+        RollupAnchor::set_value(self, &DRAW_NUMBER.encode(), Some(&draw_number.encode()));
     }
 
     #[ink(message)]
-    fn get_status(&self) -> Status {
-        self.data::<Data>().status
+    fn get_status(&self) -> Result<Status, RaffleError> {
+        match RollupAnchor::get_value(self, STATUS.encode()) {
+            Some(v) => Status::decode(&mut v.as_slice()).map_err(|_| FailedToDecode),
+            _ => Ok(Status::NotStarted),
+        }
+    }
+
+    fn set_status(&mut self, status: Status) {
+        RollupAnchor::set_value(self, &STATUS.encode(), Some(&status.encode()));
     }
 
     #[ink(message)]
@@ -210,12 +224,12 @@ pub trait RaffleManager: Storage<Data> {
         results: Vec<Number>,
     ) -> Result<(), RaffleError> {
         // check the raffle number
-        if self.data::<Data>().draw_number != draw_number {
+        if self.get_draw_number()? != draw_number {
             return Err(IncorrectDrawNumber);
         }
 
         // check the status
-        if self.data::<Data>().status != Status::RegistrationsClosed {
+        if self.get_status()? != Status::RegistrationsClosed {
             return Err(IncorrectStatus);
         }
 
@@ -225,7 +239,7 @@ pub trait RaffleManager: Storage<Data> {
                 // save the results
                 self.data::<Data>().results.insert(draw_number, &results);
                 // update the status
-                self.data::<Data>().status = Status::WaitingWinners;
+                self.set_status(Status::WaitingWinners);
                 Ok(())
             }
         }
@@ -264,12 +278,12 @@ pub trait RaffleManager: Storage<Data> {
         winners: Vec<AccountId>,
     ) -> Result<(), RaffleError> {
         // check the raffle number
-        if self.data::<Data>().draw_number != draw_number {
+        if self.get_draw_number()? != draw_number {
             return Err(IncorrectDrawNumber);
         }
 
         // check the status
-        if self.data::<Data>().status != Status::WaitingWinners {
+        if self.get_status()? != Status::WaitingWinners {
             return Err(IncorrectStatus);
         }
 
@@ -279,7 +293,7 @@ pub trait RaffleManager: Storage<Data> {
                 // save the result
                 self.data::<Data>().winners.insert(draw_number, &winners);
                 // update the status
-                self.data::<Data>().status = Status::Closed;
+                self.set_status(Status::Closed);
                 Ok(())
             }
         }
@@ -299,8 +313,8 @@ mod tests {
             .set_registration_contracts(vec![100, 101, 102])
             .expect("Fail to add registrations contract");
 
-        assert_eq!(contract.get_status(), Status::NotStarted);
-        assert_eq!(contract.get_draw_number(), 0);
+        assert_eq!(contract.get_status(), Ok(Status::NotStarted));
+        assert_eq!(contract.get_draw_number(), Ok(0));
         assert_eq!(contract.get_registration_contracts(), vec![100, 101, 102]);
         assert_eq!(
             contract.get_registration_contract_status(100),
@@ -321,13 +335,13 @@ mod tests {
     fn test_start() {
         let mut contract = Contract::new();
 
-        assert_eq!(contract.get_status(), Status::NotStarted);
-        assert_eq!(contract.get_draw_number(), 0);
+        assert_eq!(contract.get_status(), Ok(Status::NotStarted));
+        assert_eq!(contract.get_draw_number(), Ok(0));
 
         contract.start(1).expect("Fail to start");
 
-        assert_eq!(contract.get_status(), Status::Started);
-        assert_eq!(contract.get_draw_number(), 1);
+        assert_eq!(contract.get_status(), Ok(Status::Started));
+        assert_eq!(contract.get_draw_number(), Ok(1));
 
         // we cannot add registration contract when it started
         assert_eq!(contract.set_registration_contracts(vec![1]), Err(IncorrectStatus));
@@ -344,8 +358,8 @@ mod tests {
         contract
             .open_registrations()
             .expect("Fail to open the registrations");
-        assert_eq!(contract.get_status(), Status::RegistrationsOpen);
-        assert_eq!(contract.get_draw_number(), 1);
+        assert_eq!(contract.get_status(), Ok(Status::RegistrationsOpen));
+        assert_eq!(contract.get_draw_number(), Ok(1));
 
         assert_eq!(contract.open_registrations(), Err(IncorrectStatus));
     }
@@ -370,8 +384,8 @@ mod tests {
         contract
             .close_registrations()
             .expect("Fail to close the registrations");
-        assert_eq!(contract.get_status(), Status::RegistrationsClosed);
-        assert_eq!(contract.get_draw_number(), 1);
+        assert_eq!(contract.get_status(), Ok(Status::RegistrationsClosed));
+        assert_eq!(contract.get_draw_number(), Ok(1));
     }
 
     #[ink::test]
@@ -392,13 +406,13 @@ mod tests {
         assert_eq!(contract.set_results(0, vec![]), Err(IncorrectDrawNumber));
         assert_eq!(contract.set_results(2, vec![]), Err(IncorrectDrawNumber));
 
-        assert_eq!(contract.get_status(), Status::RegistrationsClosed);
-        assert_eq!(contract.get_draw_number(), 1);
+        assert_eq!(contract.get_status(), Ok(Status::RegistrationsClosed));
+        assert_eq!(contract.get_draw_number(), Ok(1));
         contract
             .set_results(1, vec![1, 2, 3, 4])
             .expect("Fail to save the results");
-        assert_eq!(contract.get_status(), Status::WaitingWinners);
-        assert_eq!(contract.get_draw_number(), 1);
+        assert_eq!(contract.get_status(), Ok(Status::WaitingWinners));
+        assert_eq!(contract.get_draw_number(), Ok(1));
 
         assert_eq!(contract.get_results(1), Some(vec![1, 2, 3, 4]));
         assert_eq!(contract.get_results(0), None);
@@ -457,14 +471,14 @@ mod tests {
         assert_eq!(contract.set_winners(0, vec![]), Err(IncorrectDrawNumber));
         assert_eq!(contract.set_winners(2, vec![]), Err(IncorrectDrawNumber));
 
-        assert_eq!(contract.get_status(), Status::WaitingWinners);
-        assert_eq!(contract.get_draw_number(), 1);
+        assert_eq!(contract.get_status(), Ok(Status::WaitingWinners));
+        assert_eq!(contract.get_draw_number(), Ok(1));
         contract
             .set_winners(1, vec![])
             .expect("Fail to save the winners");
 
-        assert_eq!(contract.get_status(), Status::Closed);
-        assert_eq!(contract.get_draw_number(), 1);
+        assert_eq!(contract.get_status(), Ok(Status::Closed));
+        assert_eq!(contract.get_draw_number(), Ok(1));
 
         assert_eq!(contract.get_winners(1), Some(vec![]));
         assert_eq!(contract.get_results(0), None);
@@ -491,8 +505,8 @@ mod tests {
         contract
             .open_registrations()
             .expect("Fail to open the registrations");
-        assert_eq!(contract.get_status(), Status::RegistrationsOpen);
-        assert_eq!(contract.get_draw_number(), 2);
+        assert_eq!(contract.get_status(), Ok(Status::RegistrationsOpen));
+        assert_eq!(contract.get_draw_number(), Ok(2));
     }
 
     #[ink::test]
@@ -510,7 +524,7 @@ mod tests {
         // start
         contract.start(0).expect("Fail to start");
 
-        assert_eq!(contract.get_status(), Status::Started);
+        assert_eq!(contract.get_status(), Ok(Status::Started));
         assert_eq!(
             contract.get_registration_contract_status(100),
             Some(Status::NotStarted)
@@ -533,7 +547,7 @@ mod tests {
             Err(IncorrectStatus)
         );
 
-        assert_eq!(contract.get_draw_number(), 0);
+        assert_eq!(contract.get_draw_number(), Ok(0));
         // cannot save the draw number doesn't match
         assert_eq!(
             contract.save_registration_contracts_status(1, Status::Started, vec![100, 102]),
@@ -543,7 +557,7 @@ mod tests {
         contract
             .save_registration_contracts_status(0, Status::Started, vec![100, 102])
             .expect("Save status failed");
-        assert_eq!(contract.get_status(), Status::Started);
+        assert_eq!(contract.get_status(), Ok(Status::Started));
         assert_eq!(
             contract.get_registration_contract_status(100),
             Some(Status::Started)
