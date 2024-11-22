@@ -47,7 +47,7 @@ export function Synchronisation( {rpcManagerContract, addressManagerContract, rp
   useEffect(() => {
     const backgroundSyncInterval = setInterval(() => {
       synchronizeInBackground();
-    }, 15 * 1000); // every 15 seconds
+    }, 60 * 1000); // every 60 seconds
 
     return () => {
       clearInterval(backgroundSyncInterval);

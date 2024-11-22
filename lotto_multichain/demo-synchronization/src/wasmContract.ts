@@ -24,15 +24,15 @@ export class RaffleManagerWasm {
   }
 
   public async getStatus(): Promise<string> {
-    const status = await query(this.contract, 'raffleManager::getStatus');
-    console.debug('Status for manager %s (%s): %s', this.address, this.rpc, status);
-    return status;
+    const json = await query(this.contract, 'raffleManager::getStatus');
+    console.debug('Status for manager %s (%s): %s', this.address, this.rpc, json.ok);
+    return json.ok;
   }
 
   public async getDrawNumber(): Promise<string> {
-    const drawNumber = await query(this.contract, 'raffleManager::getDrawNumber');
-    console.debug('Draw Number for manager %s (%s): %s', this.address, this.rpc, drawNumber);
-    return drawNumber;
+    const json = await query(this.contract, 'raffleManager::getDrawNumber');
+    console.debug('Draw Number for manager %s (%s): %s', this.address, this.rpc, json.ok);
+    return json.ok;
   }
 
   public async canCloseRegistrations(): Promise<boolean> {
@@ -48,7 +48,7 @@ export class RaffleManagerWasm {
   }
 
   public async getNextClosingRegistrations(): Promise<number> {
-    return await query(this.contract, 'getNextClosingRegistrations');;
+    return await query(this.contract, 'getNextClosingRegistrations');
   }
 
   public async getCurrentBlock(): Promise<number> {
@@ -81,13 +81,13 @@ export class RaffleRegistrationWasm {
 
   public async getStatus(): Promise<string> {
     const json = await query(this.contract, 'raffle::getStatus');
-    console.log('Status for %s (%s): %s', this.address, this.rpc, json.ok);
+    console.debug('Status for %s (%s): %s', this.address, this.rpc, json.ok);
     return json.ok;
   }
 
   public async getDrawNumber(): Promise<string> {
     const json = await query(this.contract, 'raffle::getDrawNumber');
-    console.log('Draw Number for %s (%s): %s', this.address, this.rpc, json.ok);
+    console.debug('Draw Number for %s (%s): %s', this.address, this.rpc, json.ok);
     return json.ok;
   }
 }
