@@ -31,3 +31,4 @@
 /lotto_multichain/cli/.secret-testnet-evm
 /lotto_multichain/cli/.secret-testnet-wasm
 /lotto_multichain/pink/contract/.env
+/lotto_multichain/ink/target/
