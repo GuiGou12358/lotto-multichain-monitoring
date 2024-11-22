@@ -265,6 +265,14 @@ mod lotto_draw_multichain {
 
             ink::env::debug_println!("Received request: {request:02x?}");
 
+            // read the status and the draw number to include them in the where clause (optimistic locking)
+            /*
+            let status = lotto_draw_logic::wasm_contract::get_manager_status(&mut client)?;
+            let draw_number = lotto_draw_logic::wasm_contract::get_manager_draw_number(&mut client)?;
+            ink::env::debug_println!("manager status : {status:?}");
+            ink::env::debug_println!("manager draw_number : {draw_number:?}");
+             */
+
             let response = self.handle_request(request)?;
             let encoded_response = response.encode();
             ink::env::debug_println!("Manager encoded response: {encoded_response:02x?}");
