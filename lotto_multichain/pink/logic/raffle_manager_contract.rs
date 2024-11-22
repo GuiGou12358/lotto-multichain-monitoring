@@ -3,7 +3,7 @@ extern crate alloc;
 use crate::types::{AccountId32, DrawNumber, Hash, Number, RaffleConfig, RegistrationContractId};
 use alloc::vec::Vec;
 
-#[derive(scale::Encode, scale::Decode)]
+#[derive(scale::Encode, scale::Decode, Debug)]
 pub enum RaffleManagerStatus {
     NotStarted,
     Started,

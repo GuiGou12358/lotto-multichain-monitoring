@@ -6,7 +6,7 @@ use alloc::vec::Vec;
 use phat_offchain_rollup::clients::ink::{Action, InkRollupClient};
 use scale::Encode;
 
-use crate::raffle_manager_contract::{LottoManagerRequestMessage, LottoManagerResponseMessage};
+use crate::raffle_manager_contract::{LottoManagerRequestMessage, LottoManagerResponseMessage, RaffleManagerStatus};
 use crate::raffle_registration_contract::{
     RaffleRegistrationContract, RaffleRegistrationStatus, RequestForAction,
 };
@@ -135,6 +135,25 @@ fn get_status(
         .map_err(|_| StatusUnknown)
 }
 
+pub fn get_manager_draw_number(client: &mut InkRollupClient) -> Result<Option<DrawNumber>, RaffleDrawError> {
+    client
+        .get(&DRAW_NUMBER)
+        .log_err("Draw number unknown in kv store")
+        .map_err(|_| DrawNumberUnknown)
+}
+
+pub fn get_manager_status(
+    client: &mut InkRollupClient,
+) -> Result<Option<RaffleManagerStatus>, RaffleDrawError> {
+    let key = &STATUS.encode();
+    ink::env::debug_println!("status key: {key:02x?}");
+    client
+        .get(&STATUS)
+        .log_err("Status unknown in kv store")
+        .map_err(|_| StatusUnknown)
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -180,30 +199,41 @@ mod tests {
         let id: u32 = 11;
         let key = [QUEUE_PREFIX, &id.encode()].concat();
         ink::env::debug_println!("queue key: {key:02x?}");
+
+        let key = &STATUS.encode();
+        ink::env::debug_println!("status key: {key:02x?}");
+
+        let key = &DRAW_NUMBER.encode();
+        ink::env::debug_println!("draw number key: {key:02x?}");
     }
-    /*
-       #[ink::test]
-       fn decode_message() {
-           let encoded_message: Vec<u8> =
-               hex::decode("03060000001004003100290010000000000000000000000000000000000000000000000000000000000000000000").expect("hex decode failed");
-           let message = LottoManagerRequestMessage::decode(&mut encoded_message.as_slice())?;
-           ink::env::debug_println!("message: {message:?}");
 
-           let draw_number = 6;
-           let numbers = vec![4, 49, 41, 16];
-           let hash = [0; 32];
-           let expected = LottoManagerRequestMessage::OpenRegistrations()WinningNumbers(draw_number, numbers, hash);
-           let encoded_response = response.encode();
-           let expected : Vec<u8> = hex::decode("03060000001004003100290010000000000000000000000000000000000000000000000000000000000000000000").expect("hex decode failed");
-           assert_eq!(expected, encoded_response);
+    #[ink::test]
+    fn encode_request_set_config_and_start() {
+        let registration_contract_id = 10;
+        let nb_numbers = 4;
+        let min_number = 1;
+        let max_number = 50;
+        let request = RequestForAction::SetConfigAndStart(RaffleConfig{nb_numbers, min_number, max_number}, registration_contract_id);
+        let encoded_request = request.encode();
+        let expected : Vec<u8> = hex::decode("0004010032000a000000000000000000000000000000").expect("hex decode failed");
 
-           let response = LottoManagerResponseMessage::WinningNumbers(draw_number, numbers, hash);
+        ink::env::debug_println!("encoded_request: {encoded_request:02x?}");
+        assert_eq!(expected, encoded_request);
 
-           let encoded_message: Vec<u8> =
-               hex::decode("0406000000000000000000000000000000000000000000000000000000000000000000000000").expect("hex decode failed");
-           let message = LottoManagerRequestMessage::decode(&mut encoded_message.as_slice())?;
-           ink::env::debug_println!("message: {message:?}");
-       }
 
-    */
+        let draw_number = 1;
+        let numbers = vec![4, 49, 41, 16];
+        let hash = [0; 32];
+
+        // ""
+    }
+
+   #[ink::test]
+   fn decode_message() {
+       let encoded_message: Vec<u8> =
+           hex::decode("050500000010040013002f001a00000c0a0000000000000000000000000000000b0000000000000000000000000000000c000000000000000000000000000000").expect("hex decode failed");
+       let message = LottoManagerRequestMessage::decode(&mut encoded_message.as_slice())?;
+       ink::env::debug_println!("message: {message:?}");
+   }
+
 }
