@@ -120,16 +120,10 @@ mod lotto_draw_multichain {
             signing::get_public_key(&self.attest_key, signing::SigType::Sr25519)
         }
 
-
         /// Gets the ecdsa address used by this rollup in the meta transaction (for evm tx)
         #[ink(message)]
-        pub fn get_attest_ecdsa_address_evm(&self) -> [u8; 20] {
-            let public_key: [u8; 33] = signing::get_public_key(&self.attest_key, signing::SigType::Ecdsa)
-                .try_into()
-                .expect("Public key should be of length 33");
-            let mut address = [0u8; 20];
-            ink::env::ecdsa_to_eth_address(&public_key, &mut address).expect("Get address of ecdsa failed");
-            address
+        pub fn get_attest_address_evm(&self) -> Vec<u8> {
+            Self::get_evm_address(&self.attest_key)
         }
 
         /// Gets the ecdsa address used by this rollup in the meta transaction (for substrate tx)
@@ -142,16 +136,28 @@ mod lotto_draw_multichain {
             output.to_vec()
         }
 
+        fn get_substrate_address(key: &[u8]) -> Vec<u8> {
+            signing::get_public_key(key, signing::SigType::Sr25519)
+        }
+
+        fn get_evm_address(key: &[u8]) -> Vec<u8> {
+            let public_key: [u8; 33] = signing::get_public_key(key, signing::SigType::Ecdsa)
+                .try_into()
+                .expect("Public key should be of length 33");
+            let mut address = [0u8; 20];
+            ink::env::ecdsa_to_eth_address(&public_key, &mut address).expect("Get address of ecdsa failed");
+            address.to_vec()
+        }
+
         /// Gets the sender address used by this rollup (in case of meta-transaction)
         #[ink(message)]
         pub fn get_sender_address_raffle_manager(&self) -> Option<Vec<u8>> {
             match self.raffle_manager.as_ref() {
                 Some(config) => {
-                    let sender_key = match config {
-                        ContractConfig::Wasm(c) => c.sender_key.as_ref(),
-                        ContractConfig::Evm(c) => c.sender_key.as_ref(),
-                    };
-                    sender_key.map(|key| signing::get_public_key(key, signing::SigType::Sr25519))
+                    match config {
+                        ContractConfig::Wasm(c) => c.sender_key.as_ref().map(|key| Self::get_substrate_address(key)),
+                        ContractConfig::Evm(c) => c.sender_key.as_ref().map(|key| Self::get_evm_address(key)),
+                    }
                 }
                 None => None,
             }
@@ -165,11 +171,10 @@ mod lotto_draw_multichain {
         ) -> Option<Vec<u8>> {
             match self.raffle_registrations.get(contract_id).as_ref() {
                 Some(config) => {
-                    let sender_key = match config {
-                        ContractConfig::Wasm(c) => c.sender_key.as_ref(),
-                        ContractConfig::Evm(c) => c.sender_key.as_ref(),
-                    };
-                    sender_key.map(|key| signing::get_public_key(key, signing::SigType::Sr25519))
+                    match config {
+                        ContractConfig::Wasm(c) => c.sender_key.as_ref().map(|key| Self::get_substrate_address(key)),
+                        ContractConfig::Evm(c) => c.sender_key.as_ref().map(|key| Self::get_evm_address(key)),
+                    }
                 }
                 None => None,
             }
@@ -714,9 +719,9 @@ mod lotto_draw_multichain {
 
             let lotto = init_contract();
 
-            let attestor_address = lotto.get_attest_address();
+            let attestor_address = lotto.get_attest_address_substrate();
             ink::env::debug_println!("attestor address: {attestor_address:02x?}");
-            let attestor_ecdsa_address = lotto.get_attest_ecdsa_address();
+            let attestor_ecdsa_address = lotto.get_attest_ecdsa_address_substrate();
             ink::env::debug_println!("attestor ecdsa address: {attestor_ecdsa_address:02x?}");
             let sender_address = lotto.get_sender_address_raffle_registration(10);
             ink::env::debug_println!("sender address 10: {sender_address:02x?}");
@@ -724,5 +729,6 @@ mod lotto_draw_multichain {
             let r = lotto.answer_request().expect("failed to answer request");
             ink::env::debug_println!("answer request: {r:?}");
         }
+
     }
 }
