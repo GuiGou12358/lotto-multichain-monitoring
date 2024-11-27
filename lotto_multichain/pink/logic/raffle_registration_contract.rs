@@ -33,5 +33,5 @@ pub trait RaffleRegistrationContract {
         target_status: Option<RaffleRegistrationStatus>,
         action: RequestForAction,
         attest_key: &[u8; 32],
-    ) -> Result<bool, RaffleDrawError>;
+    ) -> Result<(bool, Option<Vec<u8>>), RaffleDrawError>;
 }

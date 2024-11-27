@@ -46,7 +46,7 @@ impl RaffleRegistrationContract for EvmContract {
         expected_status: Option<RaffleRegistrationStatus>,
         action: RequestForAction,
         attest_key: &[u8; 32],
-    ) -> Result<bool, RaffleDrawError> {
+    ) -> Result<(bool, Option<Vec<u8>>), RaffleDrawError> {
         // connect to the contract
         let mut client = self.connect()?;
 
@@ -68,16 +68,16 @@ impl RaffleRegistrationContract for EvmContract {
 
         if correct_draw_number && correct_status {
             // the contract is already synchronized
-            return Ok(true);
+            return Ok((true, None));
         }
 
         // synchronize the contract =>  Attach an action to the tx
         let action = encode_request(&action)?;
         client.action(Action::Reply(action));
         // submit the transaction
-        maybe_submit_tx(client, attest_key, self.config.sender_key.as_ref())?;
+        let tx = maybe_submit_tx(client, attest_key, self.config.sender_key.as_ref())?;
 
-        Ok(false)
+        Ok((false, tx))
     }
 }
 

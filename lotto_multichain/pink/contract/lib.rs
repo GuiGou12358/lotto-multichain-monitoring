@@ -120,6 +120,7 @@ mod lotto_draw_multichain {
             signing::get_public_key(&self.attest_key, signing::SigType::Sr25519)
         }
 
+
         /// Gets the ecdsa address used by this rollup in the meta transaction (for evm tx)
         #[ink(message)]
         pub fn get_attest_ecdsa_address_evm(&self) -> [u8; 20] {
@@ -240,7 +241,7 @@ mod lotto_draw_multichain {
 
         /// Processes a request by a rollup transaction
         #[ink(message)]
-        pub fn answer_request(&self) -> Result<Option<Vec<u8>>> {
+        pub fn answer_request(&self) -> Result<Vec<(RegistrationContractId, Option<Vec<u8>>)>> {
             let config = self.ensure_client_configured()?;
             /*
                         let mut client: Box<dyn RaffleManagerContract> = match config {
@@ -273,49 +274,68 @@ mod lotto_draw_multichain {
             ink::env::debug_println!("manager draw_number : {draw_number:?}");
              */
 
-            let response = self.handle_request(request)?;
-            let encoded_response = response.encode();
-            ink::env::debug_println!("Manager encoded response: {encoded_response:02x?}");
-            // Attach an action to the tx by:
-            client.action(Action::Reply(response.encode()));
-
-            let tx = WasmContract::maybe_submit_tx(client, &self.attest_key, sender_key.as_ref())?;
-            ink::env::debug_println!("tx: {tx:02x?}");
-            Ok(tx)
+            let (r, mut txs) = self.handle_request(request)?;
+            if let Some(response) = r {
+                let encoded_response = response.encode();
+                ink::env::debug_println!("Manager encoded response: {encoded_response:02x?}");
+                // Attach an action to the tx by:
+                client.action(Action::Reply(response.encode()));
+                let tx = WasmContract::maybe_submit_tx(client, &self.attest_key, sender_key.as_ref())?;
+                ink::env::debug_println!("tx: {tx:02x?}");
+                txs.push((0, tx));
+            } else {
+                txs.push((0, None));
+            }
+            Ok(txs)
         }
 
         fn handle_request(
             &self,
             message: LottoManagerRequestMessage,
-        ) -> Result<LottoManagerResponseMessage> {
+        ) -> Result<(Option<LottoManagerResponseMessage>, Vec<(RegistrationContractId, Option<Vec<u8>>)>)> {
             let response = match message {
                 LottoManagerRequestMessage::PropagateConfig(config, ref contract_ids) => {
-                    let synchronized_contracts = self.inner_do_action(
+                    let (synchronized_contracts, txs) = self.inner_do_action(
                         RequestForAction::SetConfigAndStart(config, 0),
                         contract_ids,
                     )?;
-                    let hash = [0; 32]; // TODO compute hash
-                    LottoManagerResponseMessage::ConfigPropagated(synchronized_contracts, hash)
+                    let response = if synchronized_contracts.is_empty(){
+                        None
+                    } else {
+                        let hash = [0; 32]; // TODO compute hash
+                        Some(LottoManagerResponseMessage::ConfigPropagated(synchronized_contracts, hash))
+                    };
+                    (response, txs)
                 }
                 LottoManagerRequestMessage::OpenRegistrations(draw_number, ref contract_ids) => {
-                    let synchronized_contracts = self.inner_do_action(
+                    let (synchronized_contracts, txs) = self.inner_do_action(
                         RequestForAction::OpenRegistrations(draw_number),
                         contract_ids,
                     )?;
-                    LottoManagerResponseMessage::RegistrationsOpen(
-                        draw_number,
-                        synchronized_contracts,
-                    )
+                    let response = if synchronized_contracts.is_empty(){
+                        None
+                    } else {
+                        Some(LottoManagerResponseMessage::RegistrationsOpen(
+                            draw_number,
+                            synchronized_contracts,
+                        ))
+                    };
+                    (response, txs)
                 }
                 LottoManagerRequestMessage::CloseRegistrations(draw_number, ref contract_ids) => {
-                    let synchronized_contracts = self.inner_do_action(
+                    let  (synchronized_contracts, txs) = self.inner_do_action(
                         RequestForAction::CloseRegistrations(draw_number),
                         contract_ids,
                     )?;
-                    LottoManagerResponseMessage::RegistrationsClosed(
-                        draw_number,
-                        synchronized_contracts,
-                    )
+                    let response = if synchronized_contracts.is_empty(){
+                        None
+                    } else {
+                        Some(LottoManagerResponseMessage::RegistrationsClosed(
+                            draw_number,
+                            synchronized_contracts,
+                        ))
+                    };
+                    (response, txs)
                 }
                 LottoManagerRequestMessage::DrawNumbers(draw_number, ref config) => {
                     let numbers = self.inner_get_numbers(
@@ -325,7 +345,7 @@ mod lotto_draw_multichain {
                         config.max_number,
                     )?;
                     let hash = [0; 32]; // TODO compute hash
-                    LottoManagerResponseMessage::WinningNumbers(draw_number, numbers, hash)
+                    (Some(LottoManagerResponseMessage::WinningNumbers(draw_number, numbers, hash)), Vec::new())
                 }
                 LottoManagerRequestMessage::CheckWinners(draw_number, ref numbers) => {
                     let indexer = Indexer::new(self.get_indexer_url())?;
@@ -338,7 +358,7 @@ mod lotto_draw_multichain {
                     */
                     let hash = [0; 32]; // TODO compute hash
                                         // TODO manage evm addresses
-                    LottoManagerResponseMessage::Winners(draw_number, winners.0, hash)
+                    (Some(LottoManagerResponseMessage::Winners(draw_number, winners.0, hash)), Vec::new())
                 }
                 LottoManagerRequestMessage::PropagateResults(
                     draw_number,
@@ -346,7 +366,7 @@ mod lotto_draw_multichain {
                     ref winners,
                     ref contract_ids,
                 ) => {
-                    let synchronized_contracts = self.inner_do_action(
+                    let  (synchronized_contracts, txs) = self.inner_do_action(
                         RequestForAction::SetResults(
                             draw_number,
                             numbers.to_vec(),
@@ -354,12 +374,17 @@ mod lotto_draw_multichain {
                         ),
                         contract_ids,
                     )?;
-                    let hash = [0; 32]; // TODO compute hash
-                    LottoManagerResponseMessage::ResultsPropagated(
-                        draw_number,
-                        synchronized_contracts,
-                        hash,
-                    )
+                    let response = if synchronized_contracts.is_empty(){
+                        None
+                    } else {
+                        let hash = [0; 32]; // TODO compute hash
+                        Some(LottoManagerResponseMessage::ResultsPropagated(
+                            draw_number,
+                            synchronized_contracts,
+                            hash,
+                        ))
+                    };
+                    (response, txs)
                 }
             };
 
@@ -370,8 +395,9 @@ mod lotto_draw_multichain {
             &self,
             request: RequestForAction,
             contract_ids: &[RegistrationContractId],
-        ) -> Result<Vec<RegistrationContractId>> {
+        ) -> Result<(Vec<RegistrationContractId>, Vec<(RegistrationContractId, Option<Vec<u8>>)>)> {
             let mut synchronized_contracts = Vec::new();
+            let mut txs = Vec::new();
 
             // get the status and draw number matching with this action
             let (target_draw_number, target_status) = match request {
@@ -415,18 +441,21 @@ mod lotto_draw_multichain {
                 };
 
                 // check the status and draw number and do the action is the contract is not synchronized
-                if contract.do_action(
+                let (sync, tx) = contract.do_action(
                     target_draw_number,
                     target_status,
                     request.clone(),
                     &self.attest_key,
-                )? {
+                )?;
+                if sync {
                     // the contract is synchronized
                     synchronized_contracts.push(*contract_id);
                 }
+                txs.push((*contract_id, tx));
+
             }
             // return the list of synchronized contracts
-            Ok(synchronized_contracts)
+            Ok((synchronized_contracts, txs))
         }
 
 

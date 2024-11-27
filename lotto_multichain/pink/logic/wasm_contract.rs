@@ -76,7 +76,7 @@ impl RaffleRegistrationContract for WasmContract {
         target_status: Option<RaffleRegistrationStatus>,
         action: RequestForAction,
         attest_key: &[u8; 32],
-    ) -> Result<bool, RaffleDrawError> {
+    ) -> Result<(bool, Option<Vec<u8>>), RaffleDrawError> {
         // connect to the contract
 
         ink::env::debug_println!("target_draw_number : {target_draw_number:?}");
@@ -95,7 +95,7 @@ impl RaffleRegistrationContract for WasmContract {
         if draw_number == target_draw_number && status == target_status {
             // the contract is already synchronized
             ink::env::debug_println!("Synched");
-            return Ok(true);
+            return Ok((true, None));
         }
 
         let encoded_reply = scale::Encode::encode(&action);
@@ -109,8 +109,7 @@ impl RaffleRegistrationContract for WasmContract {
 
         // submit the transaction
         let tx = Self::maybe_submit_tx(client, attest_key, self.config.sender_key.as_ref())?;
-        ink::env::debug_println!("tx submitted: {tx:02x?}");
-        Ok(false)
+        Ok((false, tx))
     }
 }
 
