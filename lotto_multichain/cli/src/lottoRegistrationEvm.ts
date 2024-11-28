@@ -27,8 +27,8 @@ export class RaffleRegistrationEvm {
         const signer = new ethers.Wallet(seed_evm, provider);
 
         const contractFactory = new ethers.ContractFactory(abi, bytecode, signer);
-        const contract = await contractFactory.deploy(signer.address);
-        await contract.deploymentTransaction().wait();
+        const contract = await contractFactory.deploy({gasPrice: 1000000000},signer.address);
+        await contract.waitForDeployment();
 
         const address = await contract.getAddress();
         this.config.contractConfig.address = address;

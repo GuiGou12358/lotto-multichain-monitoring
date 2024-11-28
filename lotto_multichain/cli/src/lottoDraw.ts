@@ -15,6 +15,7 @@ import {KeyringPair} from "@polkadot/keyring/types";
 import {readFileSync} from "fs";
 import {seed_wasm} from "./seed";
 
+const METADATA_FILE = './metadata/lotto_draw_multichain.json';
 
 export class LottoDraw {
 
@@ -43,7 +44,7 @@ export class LottoDraw {
         ]);
         console.log('You are connected to chain %s using %s v%s', chain, nodeName, nodeVersion);
 
-        const metadata = readFileSync(this.config.metadata, 'utf-8');
+        const metadata = readFileSync(METADATA_FILE, 'utf-8');
         this.smartContract = await getContract({
             client,
             contractId: this.config.address,

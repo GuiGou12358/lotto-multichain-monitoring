@@ -3,19 +3,11 @@ import type {ISubmittableResult} from '@polkadot/types/types';
 import {KeyringPair} from "@polkadot/keyring/types";
 import {setTimeout} from "timers/promises";
 import {CodePromise} from "@polkadot/api-contract";
-import {SmartContractConfig, WasmContractCallConfig} from "./config";
-import {getApi} from "./wasmContractHelper";
-import {readFileSync} from "fs";
 
 export async function instantiateWithCode(
-  config : SmartContractConfig,
+  code : CodePromise,
   signer : KeyringPair,
 ) : Promise<string> {
-
-    const api = await getApi((config.call as WasmContractCallConfig).wssRpc);
-    const metadata = readFileSync(config.metadata);
-    const wasm = readFileSync(config.wasm);
-    const code = new CodePromise(api, metadata.toString(), wasm);
 
     // maximum gas to be consumed for the call. if limit is too small the call will fail.
     const gasLimit = code.api.registry.createType('WeightV2',

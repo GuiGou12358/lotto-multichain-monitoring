@@ -27,14 +27,11 @@ export type ContractCallConfig = WasmContractCallConfig | EvmContractCallConfig;
 export interface SmartContractConfig {
     readonly call: ContractCallConfig;
     address: string;
-    readonly metadata: string;
-    readonly wasm: string;
 }
 
 export interface PhalaConfig {
     readonly wssRpc: string;
     readonly address: string;
-    readonly metadata: string;
 }
 
 export interface RegistrationContractConfig {
@@ -69,8 +66,6 @@ const registrationContractShibuya = new class implements RegistrationContractCon
     registrationContractId = 10;
     contractConfig = new class implements SmartContractConfig {
         address = shibuyaRegistrationContractAddress;
-        metadata = './metadata/lotto_registration_contract.json';
-        wasm = './metadata/lotto_registration_contract.wasm';
         call = shibuyaConfig;
     }
 }
@@ -78,7 +73,6 @@ const registrationContractMinato = new class implements RegistrationContractConf
     registrationContractId = 11;
     contractConfig = new class implements SmartContractConfig {
         address = minatoRegistrationContractAddress;
-        metadata = './abi/RaffleRegistration.json';
         call = minatoConfig;
     }
 }
@@ -87,7 +81,6 @@ const registrationContractMoonbase = new class implements RegistrationContractCo
     registrationContractId = 12;
     contractConfig = new class implements SmartContractConfig {
         address = moonbaseRegistrationContractAddress;
-        metadata = './abi/RaffleRegistration.json';
         call = moonbaseConfig;
     }
 }
@@ -101,14 +94,11 @@ class TestnetConfig implements Config {
     };
     lottoManager = new class implements SmartContractConfig {
         address = lottoManagerAddress;
-        metadata = './metadata/lotto_registration_manager_contract.json';
-        wasm = './metadata/lotto_registration_manager_contract.wasm';
         call = shibuyaConfig;
     };
     lottoDraw = new class implements  PhalaConfig {
         wssRpc = 'wss://poc6.phala.network/ws';
         address = lottoDrawAddress;
-        metadata = "./metadata/lotto_draw_multichain.json";
     };
     lottoRegistrations = [registrationContractShibuya, registrationContractMinato, registrationContractMoonbase];
     indexer = "https://query.substrate.fi/lotto-subquery-shibuya";

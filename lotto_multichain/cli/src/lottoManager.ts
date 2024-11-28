@@ -1,4 +1,4 @@
-import {ContractPromise} from "@polkadot/api-contract";
+import {CodePromise, ContractPromise} from "@polkadot/api-contract";
 import {KeyringPair} from "@polkadot/keyring/types";
 import {readFileSync} from "fs";
 import {RaffleConfig, SmartContractConfig, WasmContractCallConfig} from "./config";
@@ -7,6 +7,8 @@ import {seed_wasm} from "./seed";
 import {Keyring} from "@polkadot/api";
 import {instantiateWithCode} from "./txHelper";
 
+const METADATA_FILE = './metadata/lotto_registration_manager_contract.json';
+const WASM_FILE = './metadata/lotto_registration_manager_contract.wasm';
 
 export class RaffleManager {
 
@@ -25,9 +27,13 @@ export class RaffleManager {
         }
 
         const api = await getApi((this.config.call as WasmContractCallConfig).wssRpc);
+        this.signer  = new Keyring({ type: 'sr25519' }).addFromUri(seed_wasm);
 
-        const signer  = new Keyring({ type: 'sr25519' }).addFromUri(seed_wasm);
-        const address = await instantiateWithCode(this.config, signer);
+        const metadata = readFileSync(METADATA_FILE);
+        const wasm = readFileSync(WASM_FILE);
+        const code = new CodePromise(api, metadata.toString(), wasm);
+
+        const address = await instantiateWithCode(code, this.signer);
         this.config.address = address;
         console.log('new Raffle Manager instantiated: %s', address);
 
@@ -43,7 +49,7 @@ export class RaffleManager {
         console.log('Connect to Raffle Manager %s', this.config.address);
 
         const api = await getApi((this.config.call as WasmContractCallConfig).wssRpc);
-        const metadata = readFileSync(this.config.metadata);
+        const metadata = readFileSync(METADATA_FILE);
         this.contract = new ContractPromise(api, metadata.toString(), this.config.address);
         this.signer = new Keyring({ type: 'sr25519' }).addFromUri(seed_wasm);
     }

@@ -1,11 +1,14 @@
 import {RegistrationContractConfig, WasmContractCallConfig} from "./config";
 import {readFileSync} from "fs";
-import {ContractPromise} from "@polkadot/api-contract";
+import {CodePromise, ContractPromise} from "@polkadot/api-contract";
 import {getApi, query, tx} from "./wasmContractHelper";
 import {Keyring} from "@polkadot/api";
 import {KeyringPair} from "@polkadot/keyring/types";
 import {seed_wasm} from "./seed";
 import {instantiateWithCode} from "./txHelper";
+
+const METADATA_FILE = './metadata/lotto_registration_contract.json';
+const WASM_FILE = './metadata/lotto_registration_contract.wasm';
 
 export class RaffleRegistrationWasm {
 
@@ -26,8 +29,14 @@ export class RaffleRegistrationWasm {
             return;
         }
 
+        const api = await getApi((this.config.contractConfig.call as WasmContractCallConfig).wssRpc);
         const signer = this.getSigner();
-        const address = await instantiateWithCode(this.config.contractConfig, signer);
+
+        const metadata = readFileSync(METADATA_FILE);
+        const wasm = readFileSync(WASM_FILE);
+        const code = new CodePromise(api, metadata.toString(), wasm);
+
+        const address = await instantiateWithCode(code, signer);
         this.config.contractConfig.address = address;
         console.log('New WASM Raffle Registration instantiated: %s', address);
 
