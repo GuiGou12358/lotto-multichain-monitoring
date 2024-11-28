@@ -56,7 +56,7 @@ export async function tx(
         const value : string = output?.toString() ?? '';
         const res = JSON.parse(value).ok;
         if (res.err){
-            console.log('query result: %s', value);
+            console.log('Error when sending transaction - err : %s', res.err);
             return Promise.reject("Error when dry run the tx " + res.err);
         }
 

@@ -2,12 +2,39 @@ import {SubmittableExtrinsic} from '@polkadot/api/types';
 import type {ISubmittableResult} from '@polkadot/types/types';
 import {KeyringPair} from "@polkadot/keyring/types";
 import {setTimeout} from "timers/promises";
+import {CodePromise} from "@polkadot/api-contract";
+import {SmartContractConfig, WasmContractCallConfig} from "./config";
+import {getApi} from "./wasmContractHelper";
+import {readFileSync} from "fs";
+
+export async function instantiateWithCode(
+  config : SmartContractConfig,
+  signer : KeyringPair,
+) : Promise<string> {
+
+    const api = await getApi((config.call as WasmContractCallConfig).wssRpc);
+    const metadata = readFileSync(config.metadata);
+    const wasm = readFileSync(config.wasm);
+    const code = new CodePromise(api, metadata.toString(), wasm);
+
+    // maximum gas to be consumed for the call. if limit is too small the call will fail.
+    const gasLimit = code.api.registry.createType('WeightV2',
+      {refTime: 50000000000, proofSize: 1000000}
+    );
+    // a limit to how much Balance to be used to pay for the storage created by the contract call
+    // if null is passed, unlimited balance can be used
+    const storageDepositLimit = null;
+
+    const extrinsic = code.tx.new({gasLimit, storageDepositLimit});
+    return await signAndSend(extrinsic, signer);
+
+}
 
 
 export async function signAndSend(
     extrinsic: SubmittableExtrinsic<'promise', ISubmittableResult>,
     signer : KeyringPair,
-) : Promise<void> {
+) : Promise<string> {
 
     let extrinsicResult : ExtrinsicResult = {success: false, failed: false, finalized: false };
 
@@ -29,13 +56,17 @@ export async function signAndSend(
     if (extrinsicResult.failed){
         return Promise.reject("ERROR: Extrinsic failed");
     }
+
+    return extrinsicResult.result;
 }
 
 export type ExtrinsicResult = {
     success: boolean;
     failed: boolean;
     finalized: boolean;
+    result?: string;
 }
+
 
 function readResult(result: ISubmittableResult, extrinsicResult: ExtrinsicResult) : boolean {
 
@@ -45,7 +76,6 @@ function readResult(result: ISubmittableResult, extrinsicResult: ExtrinsicResult
         console.log('Transaction hash ', result.txHash.toHex());
         extrinsicResult.finalized = result.status.isFinalized;
 
-        //result.events.forEach(({ phase, event : {data, method, section}} ) => {
         result.events.forEach(({ phase, event} ) => {
             let data = event.data;
             let method = event.method;
@@ -59,6 +89,9 @@ function readResult(result: ISubmittableResult, extrinsicResult: ExtrinsicResult
                 extrinsicResult.failed = true;
                 console.log(' %s : %s.%s:: %s', phase, section, method, data);
                 return true;
+            } else if (section == 'contracts' && method == 'Instantiated'){
+                const [_owner, contract] = data;
+                extrinsicResult.result = contract.toString();
             }
         });
     } else if (result.isError){

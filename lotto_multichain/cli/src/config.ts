@@ -1,7 +1,14 @@
+const lottoManagerAddress = 'aXVdEGsYpFz66RXnENVLZX5bxsEy2FDCZrgSCmCVUswfHrt';
+const lottoDrawAddress = '0x7c0f92e192b8340a1910d78b7631e1c76910d34cd73edcff7339979803ad1650';
+const shibuyaRegistrationContractAddress = 'YAsAmVdEhELPrAevSTDyWvwLkU3V918vJA3WeSZGFshrMYm';
+const moonbaseRegistrationContractAddress = '0x5ec53cE3E487beE702Cc665fc711498f63Ebb423';
+const minatoRegistrationContractAddress = '0xac6F956781e69Bc3D985E6B737759a3bF0cD7EED';
+
 export interface RaffleConfig {
     readonly nbNumbers: number;
     readonly minNumber: number;
     readonly maxNumber: number;
+    readonly numberOfBlocksForParticipation: number;
 }
 
 export interface WasmContractCallConfig {
@@ -19,9 +26,9 @@ export type ContractCallConfig = WasmContractCallConfig | EvmContractCallConfig;
 
 export interface SmartContractConfig {
     readonly call: ContractCallConfig;
-    readonly address: string;
-    readonly publicKey: string;
+    address: string;
     readonly metadata: string;
+    readonly wasm: string;
 }
 
 export interface PhalaConfig {
@@ -61,17 +68,16 @@ const moonbaseConfig = new class implements EvmContractCallConfig {
 const registrationContractShibuya = new class implements RegistrationContractConfig {
     registrationContractId = 10;
     contractConfig = new class implements SmartContractConfig {
-        address = 'ZkMmwcAsCuFPB13kfXH6aQiJYAfnQYC2qMiK5h1mGKsMX86';
-        publicKey = '0xa898f50fd7f434af9a1a0a5ffaa10b499938abff3e334f29fe845850dceb056e';
+        address = shibuyaRegistrationContractAddress;
         metadata = './metadata/lotto_registration_contract.json';
+        wasm = './metadata/lotto_registration_contract.wasm';
         call = shibuyaConfig;
     }
 }
 const registrationContractMinato = new class implements RegistrationContractConfig {
     registrationContractId = 11;
     contractConfig = new class implements SmartContractConfig {
-        address = '0xA8AE9c3F7bc784Ccd1E6013c59A233600C6dE90A';
-        publicKey = '0xA8AE9c3F7bc784Ccd1E6013c59A233600C6dE90A';
+        address = minatoRegistrationContractAddress;
         metadata = './abi/RaffleRegistration.json';
         call = minatoConfig;
     }
@@ -80,8 +86,7 @@ const registrationContractMinato = new class implements RegistrationContractConf
 const registrationContractMoonbase = new class implements RegistrationContractConfig {
     registrationContractId = 12;
     contractConfig = new class implements SmartContractConfig {
-        address = '0x991926D5ca21EF2938B5BAffbf4EC24fB55e205e';
-        publicKey = '0x991926D5ca21EF2938B5BAffbf4EC24fB55e205e';
+        address = moonbaseRegistrationContractAddress;
         metadata = './abi/RaffleRegistration.json';
         call = moonbaseConfig;
     }
@@ -92,16 +97,17 @@ class TestnetConfig implements Config {
         nbNumbers = 4;
         minNumber = 1;
         maxNumber = 50;
+        numberOfBlocksForParticipation = 10; // 6s/block = 1 minutes
     };
     lottoManager = new class implements SmartContractConfig {
-        address = 'YuCwFXie1QX7pPyvL8dHYGCX6gpCPB4aWchzb2bSYSgdrvu';
-        publicKey = '0x831c2d11adb7334113300493e5d02067ade55748d6e865e851a9f53a9444b2b3';
+        address = lottoManagerAddress;
         metadata = './metadata/lotto_registration_manager_contract.json';
+        wasm = './metadata/lotto_registration_manager_contract.wasm';
         call = shibuyaConfig;
     };
     lottoDraw = new class implements  PhalaConfig {
         wssRpc = 'wss://poc6.phala.network/ws';
-        address = '0x49badf682da735bee55e1098414edbd993f3500893b35cadd2d610bc961b0d33';
+        address = lottoDrawAddress;
         metadata = "./metadata/lotto_draw_multichain.json";
     };
     lottoRegistrations = [registrationContractShibuya, registrationContractMinato, registrationContractMoonbase];

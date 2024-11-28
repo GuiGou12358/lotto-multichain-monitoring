@@ -5,18 +5,36 @@ import {getApi, query, tx} from "./wasmContractHelper";
 import {Keyring} from "@polkadot/api";
 import {KeyringPair} from "@polkadot/keyring/types";
 import {seed_wasm} from "./seed";
+import {instantiateWithCode} from "./txHelper";
 
 export class RaffleRegistrationWasm {
 
     private readonly config: RegistrationContractConfig;
     private contract: ContractPromise;
-    private signer : KeyringPair;
 
     public constructor(config: RegistrationContractConfig){
         this.config = config;
     }
 
-    public async init(){
+    private getSigner() : KeyringPair {
+        return new Keyring({ type: 'sr25519' }).addFromUri(seed_wasm);
+    }
+
+    public async instantiate() : Promise<void> {
+
+        if (this.contract){
+            return;
+        }
+
+        const signer = this.getSigner();
+        const address = await instantiateWithCode(this.config.contractConfig, signer);
+        this.config.contractConfig.address = address;
+        console.log('New WASM Raffle Registration instantiated: %s', address);
+
+        await this.connect();
+    }
+
+    public async connect(){
 
         if (this.contract){
             return;
@@ -25,7 +43,6 @@ export class RaffleRegistrationWasm {
         const api = await getApi((this.config.contractConfig.call as WasmContractCallConfig).wssRpc);
         const metadata = readFileSync(this.config.contractConfig.metadata);
         this.contract = new ContractPromise(api, metadata.toString(), this.config.contractConfig.address);
-        this.signer = new Keyring({ type: 'sr25519' }).addFromUri(seed_wasm);
     }
 
     public async display() {
@@ -55,7 +72,8 @@ export class RaffleRegistrationWasm {
     public async registerAttestor(attestor: string) : Promise<void> {
         console.log('Raffle Registration %s - Register the attestor %s', this.config.registrationContractId, attestor);
         const accountId = this.contract.api.registry.createType('AccountId', attestor);
-        return await tx(this.contract, this.signer, 'registerAttestor', accountId);
+        const signer = this.getSigner();
+        return await tx(this.contract, signer, 'registerAttestor', accountId);
     }
 
     public async hasAttestorRole(attestor: string) : Promise<boolean> {
@@ -66,8 +84,3 @@ export class RaffleRegistrationWasm {
     }
 
 }
-
-
-
-
-

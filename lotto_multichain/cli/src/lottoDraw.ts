@@ -9,6 +9,8 @@ import {
     WasmContractCallConfig
 } from "./config";
 import {Keyring} from "@polkadot/api";
+import {decodeAddress} from "@polkadot/util-crypto";
+import {u8aToHex} from "@polkadot/util";
 import {KeyringPair} from "@polkadot/keyring/types";
 import {readFileSync} from "fs";
 import {seed_wasm} from "./seed";
@@ -24,7 +26,7 @@ export class LottoDraw {
         this.config = config;
     }
 
-    public async init(){
+    public async connect(){
 
         if (this.smartContract){
             return;
@@ -58,15 +60,24 @@ export class LottoDraw {
         return await query(this.smartContract, 'answerRequest');
     }
 
+    public async closeRegistrations() : Promise<void> {
+        console.log('Raffle - closeRegistrations');
+        return await query(this.smartContract, 'closeRegistrations');
+    }
+
+    public async getAttestAddressEvm() : Promise<string> {
+        return await query(this.smartContract, 'getAttestAddressEvm');
+    }
+
+    public async getAttestAddressSubstrate() : Promise<string> {
+        return await query(this.smartContract, 'getAttestAddressSubstrate');
+    }
+
     public async getAttestEcdsaAddressSubstrate() : Promise<string> {
         return await query(this.smartContract, 'getAttestEcdsaAddressSubstrate');
     }
 
-    public async getAttestEcdsaAddressEvm() : Promise<string> {
-        return await query(this.smartContract, 'getAttestEcdsaAddressEvm');
-    }
-
-    private getCallConfig(call: ContractCallConfig, publicKey: string, senderKey: string) : any {
+    private getCallConfig(call: ContractCallConfig, contractId: string, senderKey: string) : any {
         let config;
         if (isWasmContract(call)) {
             const callConfig = call as WasmContractCallConfig;
@@ -76,7 +87,7 @@ export class LottoDraw {
                       rpc: callConfig.httpsRpc,
                       palletId: callConfig.palletId,
                       callId: callConfig.callId,
-                      contractId: publicKey,
+                      contractId: u8aToHex(decodeAddress(contractId)),
                       senderKey: senderKey,
                   }
               };
@@ -86,7 +97,7 @@ export class LottoDraw {
               {
                   evm: {
                       rpc: callConfig.rpc,
-                      contractId: publicKey,
+                      contractId: contractId,
                       senderKey: senderKey,
                   }
               };
@@ -95,30 +106,22 @@ export class LottoDraw {
     }
 
     public async configIndexer(url: string) : Promise<void> {
-        console.log('Raffle - Set the indexer');
+        console.log('Communicator - Set the indexer');
         return await tx(this.smartContract, this.signer, 'configIndexer', url);
     }
 
-    public async setRaffleManager(raffleManagerConfig: SmartContractConfig) : Promise<void> {
-        console.log('Raffle - Set the raffle manager');
-        const senderKey = "0xea31cc677ba1c0109cda39829e2f3c00d7ec36ea08b186d2ec906a2bb8849e3c";
-        let config = this.getCallConfig(raffleManagerConfig.call, raffleManagerConfig.publicKey, senderKey);
+    public async setRaffleManager(raffleManagerConfig: SmartContractConfig, senderKey: string) : Promise<void> {
+        console.log('Communicator - Set the raffle manager');
+        const config = this.getCallConfig(raffleManagerConfig.call, raffleManagerConfig.address, senderKey);
         return await tx(this.smartContract, this.signer, 'setConfigRaffleManager', config);
-
     }
 
-    public async setRaffleRegistration(raffleRegistrationConfig: RegistrationContractConfig) : Promise<void> {
-
+    public async setRaffleRegistration(raffleRegistrationConfig: RegistrationContractConfig, senderKey: string) : Promise<void> {
         const registrationContractId = raffleRegistrationConfig.registrationContractId;
-        console.log('Raffle - Set the raffle registration %s', registrationContractId);
-
-        const publicKey = raffleRegistrationConfig.contractConfig.publicKey;
-        const senderKey = "0xea31cc677ba1c0109cda39829e2f3c00d7ec36ea08b186d2ec906a2bb8849e3c";
-        let config = this.getCallConfig(raffleRegistrationConfig.contractConfig.call, publicKey, senderKey);
+        console.log('Communicator - Set the raffle registration %s', registrationContractId);
+        let config = this.getCallConfig(raffleRegistrationConfig.contractConfig.call, raffleRegistrationConfig.contractConfig.address, senderKey);
         return await tx(this.smartContract, this.signer, 'setConfigRaffleRegistrations', registrationContractId, config);
-
     }
-
 
 }
 
