@@ -50,7 +50,7 @@ export class RaffleRegistrationWasm {
         }
 
         const api = await getApi((this.config.contractConfig.call as WasmContractCallConfig).wssRpc);
-        const metadata = readFileSync(this.config.contractConfig.metadata);
+        const metadata = readFileSync(METADATA_FILE);
         this.contract = new ContractPromise(api, metadata.toString(), this.config.contractConfig.address);
     }
 
