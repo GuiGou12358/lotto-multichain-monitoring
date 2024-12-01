@@ -15,7 +15,7 @@ const registration2Address = "0x991926D5ca21EF2938B5BAffbf4EC24fB55e205e";
 const rpcMinato = "https://rpc.minato.soneium.org";
 const registration3Address = "0xA8AE9c3F7bc784Ccd1E6013c59A233600C6dE90A";
 const rpcPhala = "wss://poc6.phala.network/ws";
-const pinkContractAddress = "0x49badf682da735bee55e1098414edbd993f3500893b35cadd2d610bc961b0d33";
+const pinkContractAddress = "0x094ecb79a66578ab2029c519f161d025e96c85b43d9c1e42717ee60eaa385a6e";
 
 export default function App() {
   return (
