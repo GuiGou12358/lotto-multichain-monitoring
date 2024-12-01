@@ -1,8 +1,8 @@
-const lottoManagerAddress = 'aXVdEGsYpFz66RXnENVLZX5bxsEy2FDCZrgSCmCVUswfHrt';
-const lottoDrawAddress = '0x7c0f92e192b8340a1910d78b7631e1c76910d34cd73edcff7339979803ad1650';
-const shibuyaRegistrationContractAddress = 'YAsAmVdEhELPrAevSTDyWvwLkU3V918vJA3WeSZGFshrMYm';
-const moonbaseRegistrationContractAddress = '0x5ec53cE3E487beE702Cc665fc711498f63Ebb423';
-const minatoRegistrationContractAddress = '0xac6F956781e69Bc3D985E6B737759a3bF0cD7EED';
+const lottoManagerAddress = 'YuCwFXie1QX7pPyvL8dHYGCX6gpCPB4aWchzb2bSYSgdrvu';
+const lottoDrawAddress = '0x094ecb79a66578ab2029c519f161d025e96c85b43d9c1e42717ee60eaa385a6e';
+const shibuyaRegistrationContractAddress = 'ZkMmwcAsCuFPB13kfXH6aQiJYAfnQYC2qMiK5h1mGKsMX86';
+const moonbaseRegistrationContractAddress = '0x991926D5ca21EF2938B5BAffbf4EC24fB55e205e';
+const minatoRegistrationContractAddress = '0xA8AE9c3F7bc784Ccd1E6013c59A233600C6dE90A';
 
 export interface RaffleConfig {
     readonly nbNumbers: number;
