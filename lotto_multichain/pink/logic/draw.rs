@@ -7,6 +7,7 @@ use pink_extension::{info, vrf};
 
 #[derive(scale::Encode)]
 struct SaltVrf {
+    contract_id: WasmContractId,
     draw_number: DrawNumber,
     hashes: Vec<Hash>,
 }
@@ -39,11 +40,12 @@ impl Draw {
 
     pub fn verify_numbers(
         &self,
+        contract_id: WasmContractId,
         draw_number: DrawNumber,
         hashes: Vec<Hash>,
         numbers: Vec<Number>,
     ) -> Result<bool, RaffleDrawError> {
-        let winning_numbers = self.get_numbers(draw_number, hashes)?;
+        let winning_numbers = self.get_numbers(contract_id, draw_number, hashes)?;
         if winning_numbers.len() != numbers.len() {
             return Ok(false);
         }
@@ -59,6 +61,7 @@ impl Draw {
 
     pub fn get_numbers(
         &self,
+        contract_id: WasmContractId,
         draw_number: DrawNumber,
         hashes: Vec<Hash>,
     ) -> Result<Vec<Number>, RaffleDrawError> {
@@ -68,6 +71,7 @@ impl Draw {
         let mut i: u8 = 0;
 
         let salt = SaltVrf {
+            contract_id,
             draw_number,
             hashes,
         };
@@ -128,7 +132,6 @@ impl Draw {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::ptr::hash;
 
     #[ink::test]
     fn test_get_numbers() {
@@ -137,13 +140,14 @@ mod tests {
         let nb_numbers = 5;
         let smallest_number = 1;
         let biggest_number = 50;
+        let contract_id = [1; 32];
         let draw_number = 1;
         let hashes = vec![];
 
         let draw =
             Draw::new(nb_numbers, smallest_number, biggest_number).expect("Fail to init the draw");
 
-        let result = draw.get_numbers(draw_number, hashes).unwrap();
+        let result = draw.get_numbers(contract_id, draw_number, hashes).unwrap();
         assert_eq!(nb_numbers as usize, result.len());
         for &n in result.iter() {
             assert!(n >= smallest_number);
@@ -160,13 +164,14 @@ mod tests {
         let nb_numbers = 5;
         let smallest_number = 1;
         let biggest_number = 5;
+        let contract_id = [1; 32];
         let draw_number = 1;
         let hashes = vec![];
 
         let draw =
             Draw::new(nb_numbers, smallest_number, biggest_number).expect("Fail to init the draw");
 
-        let result = draw.get_numbers(draw_number, hashes).unwrap();
+        let result = draw.get_numbers(contract_id, draw_number, hashes).unwrap();
         assert_eq!(nb_numbers as usize, result.len());
         for &n in result.iter() {
             assert!(n >= smallest_number);
@@ -180,6 +185,7 @@ mod tests {
     fn test_with_different_draw_num() {
         pink_extension_runtime::mock_ext::mock_all_ext();
 
+        let contract_id = [1; 32];
         let nb_numbers = 5;
         let smallest_number = 1;
         let biggest_number = 50;
@@ -190,12 +196,12 @@ mod tests {
         for i in 0..100 {
             let draw = Draw::new(nb_numbers, smallest_number, biggest_number)
                 .expect("Fail to init the draw");
-            let result = draw.get_numbers(i, hashes.clone()).unwrap();
+            let result = draw.get_numbers(contract_id, i, hashes.clone()).unwrap();
             // this result must be different from the previous ones
             results.iter().for_each(|r| assert_ne!(result, *r));
 
             // same request message means same result
-            let result_2 = draw.get_numbers(i, hashes.clone()).unwrap();
+            let result_2 = draw.get_numbers(contract_id, i, hashes.clone()).unwrap();
             assert_eq!(result, result_2);
 
             results.push(result);
@@ -209,23 +215,24 @@ mod tests {
         let nb_numbers = 5;
         let smallest_number = 1;
         let biggest_number = 50;
+        let contract_id = [1; 32];
         let draw_number = 1;
         let hashes = vec![];
 
         let draw =
             Draw::new(nb_numbers, smallest_number, biggest_number).expect("Fail to init the draw");
 
-        let numbers = draw.get_numbers(draw_number, hashes.clone()).unwrap();
+        let numbers = draw.get_numbers(contract_id, draw_number, hashes.clone()).unwrap();
 
         assert_eq!(
             Ok(true),
-            draw.verify_numbers(draw_number, hashes.clone(), numbers.clone())
+            draw.verify_numbers(contract_id, draw_number, hashes.clone(), numbers.clone())
         );
 
         // other raffle id
         assert_eq!(
             Ok(false),
-            draw.verify_numbers(draw_number + 1, hashes, numbers.clone())
+            draw.verify_numbers(contract_id, draw_number + 1, hashes, numbers.clone())
         );
     }
 }
