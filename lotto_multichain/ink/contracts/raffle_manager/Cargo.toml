@@ -12,6 +12,9 @@ openbrush = { version = "4.0.0-beta", git = "https://github.com/Brushfam/openbru
 phat_rollup_anchor_ink = { git = "https://github.com/Phala-Network/phat-offchain-rollup" , default-features = false}
 lotto = { path = "../../logic", default-features = false }
 
+[dev-dependencies]
+hex = "0.4.3"
+
 [lib]
 path = "lib.rs"
 
