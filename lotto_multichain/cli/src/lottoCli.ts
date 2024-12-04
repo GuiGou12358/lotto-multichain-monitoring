@@ -209,11 +209,11 @@ async function run() : Promise<void>{
                     return Promise.reject("Stop the synchronization - two many errors");
                 }
                 try {
-                    // display the status
+                    // display the statuses
                     await displayStatuses();
                     // synchronise
                     await lottoDraw.synchronize();
-                    // wait 20 seconds and read again the status
+                    // wait 20 seconds
                     await new Promise(f => setTimeout(f, 20000));
                     nbErrors = 0;
                 } catch (e) {
@@ -229,11 +229,11 @@ async function run() : Promise<void>{
                     return Promise.reject("Stop the synchronization - two many errors when closing the registrations");
                 }
                 try {
-                    // display the status
+                    // display the statuses
                     await displayStatuses();
                     // close the registrations
                     await lottoDraw.closeRegistrations();
-                    // wait 20 seconds and read again the status
+                    // wait 20 seconds
                     await new Promise(f => setTimeout(f, 20000));
                     nbErrors = 0;
                 } catch (e) {
@@ -243,7 +243,7 @@ async function run() : Promise<void>{
                 }
             }
 
-            // display the status
+            // display the statuses
             await displayStatuses();
 
             // wait 20 seconds
