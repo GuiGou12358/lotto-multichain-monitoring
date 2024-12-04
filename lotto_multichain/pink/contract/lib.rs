@@ -248,16 +248,9 @@ mod lotto_draw_multichain {
         #[ink(message)]
         pub fn answer_request(&self) -> Result<Vec<(RegistrationContractId, Option<Vec<u8>>)>> {
             let config = self.ensure_client_configured()?;
-            /*
-                        let mut client: Box<dyn RaffleManagerContract> = match config {
-                            ContractConfig::Wasm(config) => {
-                                WasmContract::new(Some(config.clone())).map(Box::new)?
-                            }
-                            ContractConfig::Evm(config) => return Err(ContractError::EvmRaffleManagerNotImplemented),
-                        };
-            */
-            let (mut client, sender_key) = match config {
-                ContractConfig::Wasm(config) => (WasmContract::connect(config)?, config.sender_key),
+
+            let (mut client, manager_contract_id, sender_key) = match config {
+                ContractConfig::Wasm(config) => (WasmContract::connect(config)?, config.contract_id , config.sender_key),
                 ContractConfig::Evm(_config) => {
                     return Err(ContractError::EvmRaffleManagerNotImplemented)
                 }
@@ -279,7 +272,7 @@ mod lotto_draw_multichain {
             ink::env::debug_println!("manager draw_number : {draw_number:?}");
              */
 
-            let (r, mut txs) = self.handle_request(request)?;
+            let (r, mut txs) = self.handle_request(request, manager_contract_id)?;
             if let Some(response) = r {
                 let encoded_response = response.encode();
                 ink::env::debug_println!("Manager encoded response: {encoded_response:02x?}");
@@ -294,20 +287,33 @@ mod lotto_draw_multichain {
             Ok(txs)
         }
 
+        fn hash_input<T: scale::Encode>(
+            input: &T
+        ) -> lotto_draw_logic::types::Hash {
+            use ink::env::hash;
+            // encode and hash the input for verification by the manager
+            let encoded_input = input.encode();
+            let mut hash_encoded_input = <hash::Blake2x256 as hash::HashOutput>::Type::default();
+            ink::env::hash_bytes::<hash::Blake2x256>(&encoded_input, &mut hash_encoded_input);
+            hash_encoded_input.into()
+        }
+
         fn handle_request(
             &self,
             message: LottoManagerRequestMessage,
+            manager_contract_id: WasmContractId
         ) -> Result<(Option<LottoManagerResponseMessage>, Vec<(RegistrationContractId, Option<Vec<u8>>)>)> {
             let response = match message {
                 LottoManagerRequestMessage::PropagateConfig(config, ref contract_ids) => {
                     let (synchronized_contracts, txs) = self.inner_do_action(
-                        RequestForAction::SetConfigAndStart(config, 0),
+                        RequestForAction::SetConfigAndStart(config.clone(), 0),
                         contract_ids,
                     )?;
                     let response = if synchronized_contracts.is_empty(){
                         None
                     } else {
-                        let hash = [0; 32]; // TODO compute hash
+                        // encode and hash the input for verification by the manager
+                        let hash = Self::hash_input(&config);
                         Some(LottoManagerResponseMessage::ConfigPropagated(synchronized_contracts, hash))
                     };
                     (response, txs)
@@ -344,12 +350,14 @@ mod lotto_draw_multichain {
                 }
                 LottoManagerRequestMessage::DrawNumbers(draw_number, ref config) => {
                     let numbers = self.inner_get_numbers(
+                        manager_contract_id,
                         draw_number,
                         config.nb_numbers,
                         config.min_number,
                         config.max_number,
                     )?;
-                    let hash = [0; 32]; // TODO compute hash
+                    // encode and hash the input for verification by the manager
+                    let hash = Self::hash_input(&config);
                     (Some(LottoManagerResponseMessage::WinningNumbers(draw_number, numbers, hash)), Vec::new())
                 }
                 LottoManagerRequestMessage::CheckWinners(draw_number, ref numbers) => {
@@ -361,8 +369,8 @@ mod lotto_draw_multichain {
                         },
                     )?
                     */
-                    let hash = [0; 32]; // TODO compute hash
-                                        // TODO manage evm addresses
+                    // encode and hash the input for verification by the manager
+                    let hash = Self::hash_input(numbers);
                     (Some(LottoManagerResponseMessage::Winners(draw_number, winners.0, hash)), Vec::new())
                 }
                 LottoManagerRequestMessage::PropagateResults(
@@ -382,7 +390,8 @@ mod lotto_draw_multichain {
                     let response = if synchronized_contracts.is_empty(){
                         None
                     } else {
-                        let hash = [0; 32]; // TODO compute hash
+                        // encode and hash the input for verification by the manager
+                        let hash = Self::hash_input(numbers);
                         Some(LottoManagerResponseMessage::ResultsPropagated(
                             draw_number,
                             synchronized_contracts,
@@ -497,35 +506,36 @@ mod lotto_draw_multichain {
             biggest_number: Number,
             numbers: Vec<Number>,
         ) -> Result<bool> {
-            /*
-                       let config = self.ensure_client_configured()?;
 
-                       // check if the target contract is correct
-                       if contract_id != config.contract_id {
-                           return Err(ContractError::InvalidContractId);
-                       }
+           let config = self.ensure_client_configured()?;
 
-                       let mut client = WasmContract::connect(config)?;
-                       const LAST_RAFFLE_FOR_VERIF: u32 = ink::selector_id!("LAST_RAFFLE_FOR_VERIF");
+            let (mut client, contract_id) = match config {
+                ContractConfig::Wasm(config) => (WasmContract::connect(config)?, config.contract_id),
+                ContractConfig::Evm(_config) => {
+                    return Err(ContractError::EvmRaffleManagerNotImplemented)
+                }
+            };
 
-                       let last_raffle: DrawNumber = client
-                           .get(&LAST_RAFFLE_FOR_VERIF)
-                           .log_err("verify numbers: last raffle unknown")?
-                           .ok_or(ContractError::CurrentRaffleUnknown)?;
+           const LAST_RAFFLE_FOR_VERIF: u32 = ink::selector_id!("LAST_RAFFLE_FOR_VERIF");
 
-                       // verify the winning numbers only for the past raffles
-                       if draw_number > last_raffle {
-                           return Err(ContractError::UnauthorizedRaffle);
-                       }
-            */
+           let last_raffle: DrawNumber = client
+               .get(&LAST_RAFFLE_FOR_VERIF)
+               .log_err("verify numbers: last raffle unknown")?
+               .ok_or(ContractError::CurrentRaffleUnknown)?;
+
+           // verify the winning numbers only for the past raffles
+           if draw_number > last_raffle {
+               return Err(ContractError::UnauthorizedRaffle);
+           }
 
             let draw = Draw::new(nb_numbers, smallest_number, biggest_number)?;
-            let result = draw.verify_numbers(draw_number, hashes, numbers)?;
+            let result = draw.verify_numbers(contract_id, draw_number, hashes, numbers)?;
             Ok(result)
         }
 
         fn inner_get_numbers(
             &self,
+            contract_id: WasmContractId,
             draw_number: DrawNumber,
             nb_numbers: u8,
             smallest_number: Number,
@@ -540,7 +550,7 @@ mod lotto_draw_multichain {
             let hashes = vec![]; // TODO implement get hashes
 
             let draw = Draw::new(nb_numbers, smallest_number, biggest_number)?;
-            let result = draw.get_numbers(draw_number, hashes)?;
+            let result = draw.get_numbers(contract_id, draw_number, hashes)?;
             Ok(result)
         }
 
