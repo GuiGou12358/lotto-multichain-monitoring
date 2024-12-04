@@ -15,6 +15,7 @@ pub mod lotto_registration_manager_contract {
     use phat_rollup_anchor_ink::traits::{
         meta_transaction, meta_transaction::*, rollup_anchor, rollup_anchor::*,
     };
+    use scale::Encode;
 
     const LOTTO_MANAGER_ROLE: RoleType = ink::selector_id!("LOTTO_MANAGER");
 
@@ -67,6 +68,7 @@ pub mod lotto_registration_manager_contract {
         RollupAnchorError(RollupAnchorError),
         CannotBeClosedYet,
         NoResult,
+        IncorrectInputHash,
         TransferError,
     }
 
@@ -311,7 +313,13 @@ pub mod lotto_registration_manager_contract {
         fn handle_started(
             &mut self,
             registration_contracts: Vec<RegistrationContractId>,
+            config_hash: &[u8],
         ) -> Result<(), ContractError> {
+
+            // check the config propagated to other contracts
+            let config = RaffleConfig::ensure_config(self)?;
+            verify_hash(&config, config_hash)?;
+
             let not_synchronized_contracts = RaffleManager::save_registration_contracts_status(
                 self,
                 RaffleManager::get_draw_number(self)?,
@@ -321,7 +329,6 @@ pub mod lotto_registration_manager_contract {
 
             if !not_synchronized_contracts.is_empty() {
                 // synchronized missing contracts and wait
-                let config = RaffleConfig::ensure_config(self)?;
                 let message =
                     LottoManagerRequestMessage::PropagateConfig(config, not_synchronized_contracts);
                 RollupAnchor::push_message(self, &message)?;
@@ -416,17 +423,23 @@ pub mod lotto_registration_manager_contract {
         fn handle_winning_numbers(
             &mut self,
             draw_number: DrawNumber,
-            //config: Config,
             numbers: Vec<Number>,
+            config_hash: &[u8],
         ) -> Result<(), ContractError> {
-            // TODO check if the config used to select the number is correct
-            //RaffleConfig::ensure_same_config(self, &config)?;
+
+            // check the config used is correct
+            let config = RaffleConfig::ensure_config(self)?;
+            verify_hash(&config, config_hash)?;
 
             // check if the numbers are correct
             RaffleConfig::check_numbers(self, &numbers)?;
 
             // set the result
             RaffleManager::set_results(self, draw_number, numbers.clone())?;
+
+            // save in the kv store the last raffle id used for verification
+            const LAST_RAFFLE: u32 = ink::selector_id!("LAST_RAFFLE_FOR_VERIF");
+            RollupAnchor::set_value(self, &LAST_RAFFLE.encode(), Some(&draw_number.encode()));
 
             // emmit the event
             self.env().emit_event(NumbersDrawn {
@@ -444,11 +457,13 @@ pub mod lotto_registration_manager_contract {
         fn handle_winners(
             &mut self,
             draw_number: DrawNumber,
-            //numbers: Vec<Number>,
             winners: Vec<AccountId>,
+            results_hash: &[u8],
         ) -> Result<(), ContractError> {
-            // TODO check if the winners were selected based on the correct numbers
-            //RaffleManager::ensure_same_results(self, raffle_id, &numbers)?;
+
+            // check if the winners were selected based on the correct numbers
+            let results = RaffleManager::get_results(self, draw_number).ok_or(ContractError::NoResult)?;
+            verify_hash(&results, results_hash)?;
 
             // set the winners in the raffle
             RaffleManager::set_winners(self, draw_number, winners.clone())?;
@@ -478,7 +493,13 @@ pub mod lotto_registration_manager_contract {
             &mut self,
             draw_number: DrawNumber,
             registration_contracts: Vec<RegistrationContractId>,
+            results_hash: &[u8],
         ) -> Result<(), ContractError> {
+
+            // check if the results propagated are correct
+            let results = RaffleManager::get_results(self, draw_number).ok_or(ContractError::NoResult)?;
+            verify_hash(&results, results_hash)?;
+
             let not_synchronized_contracts = RaffleManager::save_registration_contracts_status(
                 self,
                 draw_number,
@@ -546,6 +567,26 @@ pub mod lotto_registration_manager_contract {
                 .map_err(|_| ContractError::TransferError)?;
             Ok(())
         }
+
+    }
+
+    fn verify_hash<T: scale::Encode>(
+        input_data: &T,
+        expected_hash: &[u8],
+    ) -> Result<(), ContractError> {
+        use ink::env::hash;
+        // encode and hash the input for verification by the manager
+        let encoded_input_data = input_data.encode();
+        let mut hash_encoded_input = <hash::Blake2x256 as hash::HashOutput>::Type::default();
+        ink::env::hash_bytes::<hash::Blake2x256>(&encoded_input_data, &mut hash_encoded_input);
+
+
+        ink::env::debug_println!("hash_encoded_input: {hash_encoded_input:02x?}");
+
+        if hash_encoded_input != *expected_hash {
+            return Err(ContractError::IncorrectInputHash);
+        }
+        Ok(())
     }
 
     impl rollup_anchor::MessageHandler for Contract {
@@ -555,8 +596,8 @@ pub mod lotto_registration_manager_contract {
                 .or(Err(RollupAnchorError::FailedToDecode))?;
 
             match response {
-                LottoManagerResponseMessage::ConfigPropagated(contract_ids, _hash) => {
-                    self.handle_started(contract_ids)?
+                LottoManagerResponseMessage::ConfigPropagated(contract_ids, ref hash) => {
+                    self.handle_started(contract_ids, hash.as_ref())?
                 }
                 LottoManagerResponseMessage::RegistrationsOpen(draw_number, contract_ids) => {
                     self.handle_registrations_open(draw_number, contract_ids)?
@@ -567,13 +608,13 @@ pub mod lotto_registration_manager_contract {
                 LottoManagerResponseMessage::ResultsPropagated(
                     draw_number,
                     contract_ids,
-                    _hash,
-                ) => self.handle_results_propagated(draw_number, contract_ids)?,
-                LottoManagerResponseMessage::WinningNumbers(draw_number, numbers, _hash) => {
-                    self.handle_winning_numbers(draw_number, numbers)?
+                    ref hash,
+                ) => self.handle_results_propagated(draw_number, contract_ids, hash.as_ref())?,
+                LottoManagerResponseMessage::WinningNumbers(draw_number, numbers, ref hash) => {
+                    self.handle_winning_numbers(draw_number, numbers, hash.as_ref())?
                 }
-                LottoManagerResponseMessage::Winners(draw_number, winners, _hash) => {
-                    self.handle_winners(draw_number, winners)?
+                LottoManagerResponseMessage::Winners(draw_number, winners, ref hash) => {
+                    self.handle_winners(draw_number, winners, hash.as_ref())?
                 }
                 LottoManagerResponseMessage::CloseRegistrations() => {
                     if self.can_close_registrations() {
@@ -614,5 +655,30 @@ pub mod lotto_registration_manager_contract {
         fn emit_event_meta_tx_decoded(&self) {
             // do nothing
         }
+    }
+
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[ink::test]
+        fn test_verify_config_hash() {
+            let config = Config {
+                nb_numbers: 4,
+                min_number: 1,
+                max_number: 50,
+            };
+            let hash: Vec<u8> = hex::decode("1af688b7e4ccbd51529a15d28753270a04adf361d4eb1cbd9553ef19d353c656").expect("hex decode failed");
+            assert_eq!(verify_hash(&config, &hash), Ok(()));
+        }
+
+        #[ink::test]
+        fn test_verify_numbers_hash() {
+            let numbers: Vec<Number> = vec![5, 40, 8, 2];
+            let hash: Vec<u8> = hex::decode("0c70b0cb9b2d87768d1efacd6ca6a89be08a4c8c70855b54455f7f46caeeb155").expect("hex decode failed");
+            assert_eq!(verify_hash(&numbers, &hash), Ok(()));
+        }
+
     }
 }
