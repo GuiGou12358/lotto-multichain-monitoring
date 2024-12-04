@@ -250,7 +250,7 @@ async fn get_registration_contract_id(
 }
 
 #[ink_e2e::test(
-    additional_contracts = "contracts/raffle_registration/Cargo.toml contracts/raffle_registration/Cargo.toml"
+    additional_contracts = "contracts/raffle_registration/Cargo.toml"
 )]
 async fn test_raffles(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
     // given
@@ -439,7 +439,7 @@ async fn test_raffles(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
 }
 
 #[ink_e2e::test(
-    additional_contracts = "contracts/raffle_registration/Cargo.toml contracts/raffle_registration/Cargo.toml"
+    additional_contracts = "contracts/raffle_registration/Cargo.toml"
 )]
 async fn test_bad_attestor(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
     // given
@@ -473,7 +473,7 @@ async fn test_bad_attestor(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
 }
 
 #[ink_e2e::test(
-    additional_contracts = "contracts/raffle_registration/Cargo.toml contracts/raffle_registration/Cargo.toml"
+    additional_contracts = "contracts/raffle_registration/Cargo.toml"
 )]
 async fn test_bad_messages(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
     // given
@@ -502,7 +502,7 @@ async fn test_bad_messages(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
 /// Charlie is the sender (ie the payer)
 ///
 #[ink_e2e::test(
-    additional_contracts = "contracts/raffle_registration/Cargo.toml contracts/raffle_registration/Cargo.toml"
+    additional_contracts = "contracts/raffle_registration/Cargo.toml"
 )]
 async fn test_meta_tx_rollup_cond_eq(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
     let contract_id = alice_instantiates_raffle_registration(&mut client).await;

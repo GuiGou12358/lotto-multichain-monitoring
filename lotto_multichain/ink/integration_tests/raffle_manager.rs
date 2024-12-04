@@ -1,4 +1,4 @@
-use ink::env::DefaultEnvironment;
+use ink::env::{DefaultEnvironment};
 use ink_e2e::subxt::tx::Signer;
 use ink_e2e::{build_message, PolkadotConfig};
 use openbrush::contracts::access_control::accesscontrol_external::AccessControl;
@@ -107,9 +107,12 @@ async fn attestor_sends_config_propagated(
     registration_contracts: Vec<RegistrationContractId>,
     queue_head: u32,
 ) {
-    let hash = [0u8; 32];
+    let config_hash: [u8;32] = hex::decode("1af688b7e4ccbd51529a15d28753270a04adf361d4eb1cbd9553ef19d353c656")
+        .expect("hex decode failed")
+        .try_into()
+        .expect("incorrect length");
     let payload =
-        LottoManagerResponseMessage::ConfigPropagated(registration_contracts.clone(), hash.into());
+        LottoManagerResponseMessage::ConfigPropagated(registration_contracts.clone(), config_hash.into());
 
     let actions = vec![
         HandleActionInput::Reply(payload.encode()),
@@ -209,9 +212,12 @@ async fn attestor_sends_winning_numbers(
     numbers: Vec<Number>,
     queue_head: u32,
 ) {
-    let hash = [0u8; 32];
+    let config_hash: [u8; 32] = hex::decode("1af688b7e4ccbd51529a15d28753270a04adf361d4eb1cbd9553ef19d353c656")
+        .expect("hex decode failed")
+        .try_into()
+        .expect("incorrect length");
     let payload =
-        LottoManagerResponseMessage::WinningNumbers(draw_number, numbers.clone(), hash.into());
+        LottoManagerResponseMessage::WinningNumbers(draw_number, numbers.clone(), config_hash.into());
 
     let actions = vec![
         HandleActionInput::Reply(payload.encode()),
@@ -233,13 +239,11 @@ async fn attestor_sends_winners(
     client: &mut ink_e2e::Client<PolkadotConfig, DefaultEnvironment>,
     contract_id: &AccountId,
     draw_number: DrawNumber,
-    //numbers: Vec<Number>,
     winners: Vec<AccountId>,
+    numbers_hash: [u8; 32],
     queue_head: u32,
 ) {
-    //let request = LottoManagerRequestMessage::CheckWinners(draw_number, numbers.clone());
-    let hash = [0u8; 32];
-    let payload = LottoManagerResponseMessage::Winners(draw_number, winners.clone(), hash.into());
+    let payload = LottoManagerResponseMessage::Winners(draw_number, winners.clone(), numbers_hash.into());
 
     let actions = vec![
         HandleActionInput::Reply(payload.encode()),
@@ -262,13 +266,13 @@ async fn attestor_sends_results_propagated(
     contract_id: &AccountId,
     draw_number: DrawNumber,
     registration_contracts: Vec<RegistrationContractId>,
+    numbers_hash: [u8; 32],
     queue_head: u32,
 ) {
-    let hash = [0u8; 32];
     let payload = LottoManagerResponseMessage::ResultsPropagated(
         draw_number,
         registration_contracts.clone(),
-        hash.into(),
+        numbers_hash.into(),
     );
 
     let actions = vec![
@@ -643,6 +647,10 @@ async fn test_raffles(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
     );
 
     let numbers: Vec<Number> = vec![5, 40, 8, 2];
+    let numbers_hash: [u8;32] = hex::decode("0c70b0cb9b2d87768d1efacd6ca6a89be08a4c8c70855b54455f7f46caeeb155")
+        .expect("hex decode failed")
+        .try_into()
+        .expect("incorrect length");
     attestor_sends_winning_numbers(
         &mut client,
         &contract_id,
@@ -673,6 +681,7 @@ async fn test_raffles(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
         &contract_id,
         draw_number,
         winners.clone(),
+        numbers_hash.clone(),
         queue_head,
     )
     .await;
@@ -697,7 +706,7 @@ async fn test_raffles(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
     );
 
     // propagate the results
-    attestor_sends_results_propagated(&mut client, &contract_id, draw_number, vec![], queue_head)
+    attestor_sends_results_propagated(&mut client, &contract_id, draw_number, vec![], numbers_hash.clone(), queue_head)
         .await;
     queue_head += 1;
 
@@ -721,6 +730,7 @@ async fn test_raffles(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
         &contract_id,
         draw_number,
         vec![101, 102, 103],
+        numbers_hash.clone(),
         queue_head,
     )
     .await;

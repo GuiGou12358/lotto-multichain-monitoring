@@ -18,6 +18,7 @@ lotto_registration_contract = { path = "../contracts/raffle_registration", defau
 [dev-dependencies]
 ink_e2e = { version = "4.3.0" }
 hex-literal = { version = "0.4.1" }
+hex = "0.4.3"
 subxt-signer = { version = "0.31.0" }
 
 [lib]
