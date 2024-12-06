@@ -149,41 +149,39 @@ mod lotto_draw_multichain {
             address.to_vec()
         }
 
-        /// Gets the sender address used by this rollup (in case of meta-transaction)
-        #[ink(message)]
-        pub fn get_sender_address_raffle_manager(&self) -> Option<Vec<u8>> {
-            match self.raffle_manager.as_ref() {
-                Some(config) => {
-                    match config {
-                        ContractConfig::Wasm(c) => c.sender_key.as_ref().map(|key| Self::get_substrate_address(key)),
-                        ContractConfig::Evm(c) => c.sender_key.as_ref().map(|key| Self::get_evm_address(key)),
-                    }
-                }
-                None => None,
-            }
-        }
-
-        /// Gets the sender address used by this rollup (in case of meta-transaction)
-        #[ink(message)]
-        pub fn get_sender_address_raffle_registration(
-            &self,
-            contract_id: RegistrationContractId,
-        ) -> Option<Vec<u8>> {
-            match self.raffle_registrations.get(contract_id).as_ref() {
-                Some(config) => {
-                    match config {
-                        ContractConfig::Wasm(c) => c.sender_key.as_ref().map(|key| Self::get_substrate_address(key)),
-                        ContractConfig::Evm(c) => c.sender_key.as_ref().map(|key| Self::get_evm_address(key)),
-                    }
-                }
-                None => None,
+        fn display_config(config: &ContractConfig) -> ContractConfig {
+            match config {
+                ContractConfig::Wasm(c) =>
+                    ContractConfig::Wasm(WasmContractConfig {
+                        rpc : c.rpc.clone(),
+                        pallet_id: c.pallet_id,
+                        call_id: c.call_id,
+                        contract_id: c.contract_id,
+                        sender_key : c.sender_key.as_ref().map(|key| Self::get_substrate_address(key)
+                            .try_into()
+                            .expect("incorrect length")),
+                    }),
+                ContractConfig::Evm(c) =>
+                    ContractConfig::Evm(EvmContractConfig {
+                        rpc: c.rpc.clone(),
+                        contract_id: c.contract_id,
+                        sender_key: c.sender_key.as_ref()
+                            .map(
+                                |key| {
+                                    let mut address: Vec<u8> = Vec::new();
+                                    address.extend_from_slice([0u8; 12].as_slice());
+                                    address.extend_from_slice(Self::get_evm_address(key).as_slice());
+                                    address.try_into().expect("incorrect length")
+                                }
+                            ),
+                    }),
             }
         }
 
         /// Gets the config of the target consumer contract
         #[ink(message)]
         pub fn get_config_raffle_manager(&self) -> Option<ContractConfig> {
-            self.raffle_manager.clone()
+            self.raffle_manager.as_ref().map(Self::display_config)
         }
 
         /// Gets the config of the target consumer contract
@@ -192,7 +190,7 @@ mod lotto_draw_multichain {
             &self,
             contract_id: RegistrationContractId,
         ) -> Option<ContractConfig> {
-            self.raffle_registrations.get(contract_id).clone()
+            self.raffle_registrations.get(contract_id).as_ref().map(Self::display_config)
         }
 
         /// Configures the target consumer contract (admin only)
@@ -684,6 +682,102 @@ mod lotto_draw_multichain {
         }
 
         #[ink::test]
+        fn test_display_config() {
+            pink_extension_runtime::mock_ext::mock_all_ext();
+
+            let mut lotto = Lotto::default();
+
+            let manager_config = WasmContractConfig {
+                rpc: "https://rpc.shibuya.astar.network".to_string(),
+                pallet_id: 70,
+                call_id: 6,
+                contract_id: hex::decode("40dbd8dedbabc995f5758d62cbd48c53246f895bcffd1ca2325c2a2eea624610")
+                    .expect("hex decode failed")
+                    .try_into()
+                    .expect("Incorrect Length"),
+                sender_key: Some(hex::decode("ea21cc675ba1c0108cda39829a1f3c00d8ec36ea03b164d2ec206a2ba8848e3d")
+                    .expect("hex decode failed")
+                    .try_into()
+                    .expect("Incorrect Length")),
+            };
+
+            lotto
+                .set_config_raffle_manager(Some(ContractConfig::Wasm(manager_config.clone())))
+                .unwrap();
+
+            let registration_contract_config_10 = WasmContractConfig {
+                rpc: "https://rpc.shibuya.astar.network".to_string(),
+                pallet_id: 70,
+                call_id: 6,
+                contract_id: hex::decode("fad3389c75170b01767b014e357e508cbecc0cf3966b7dbfcf434369db62f134")
+                    .expect("hex decode failed")
+                    .try_into()
+                    .expect("Incorrect Length"),
+                sender_key: Some(hex::decode("ea21cc675ba1c0108cda39829a1f3c00d8ec36ea03b164d2ec206a2ba8848e3d")
+                    .expect("hex decode failed")
+                    .try_into()
+                    .expect("Incorrect Length")),
+            };
+
+            lotto
+                .set_config_raffle_registrations(
+                    10,
+                    Some(ContractConfig::Wasm(registration_contract_config_10.clone())),
+                )
+                .unwrap();
+
+
+            let registration_contract_config_11 = EvmContractConfig {
+                rpc: "https://rpc.shibuya.astar.network".to_string(),
+                contract_id: hex::decode("53121246949Cad4E771F42EacF950a35B3f727ca")
+                    .expect("hex decode failed")
+                    .try_into()
+                    .expect("Incorrect Length"),
+                sender_key: Some(hex::decode("ea21cc675ba1c0108cda39829a1f3c00d8ec36ea03b164d2ec206a2ba8848e3d")
+                    .expect("hex decode failed")
+                    .try_into()
+                    .expect("Incorrect Length")),
+            };
+
+            lotto
+                .set_config_raffle_registrations(
+                    11,
+                    Some(ContractConfig::Evm(registration_contract_config_11.clone())),
+                )
+                .unwrap();
+
+            if let Some(ContractConfig::Wasm(config)) = lotto.get_config_raffle_manager() {
+                assert_eq!(config.rpc, manager_config.rpc);
+                assert_eq!(config.pallet_id, manager_config.pallet_id);
+                assert_eq!(config.call_id, manager_config.call_id);
+                assert_eq!(config.contract_id, manager_config.contract_id);
+                assert_ne!(config.sender_key, manager_config.sender_key);
+            } else {
+                assert!(false);
+            }
+
+            if let Some(ContractConfig::Wasm(config)) = lotto.get_config_raffle_registrations(10) {
+                assert_eq!(config.rpc, registration_contract_config_10.rpc);
+                assert_eq!(config.pallet_id, registration_contract_config_10.pallet_id);
+                assert_eq!(config.call_id, registration_contract_config_10.call_id);
+                assert_eq!(config.contract_id, registration_contract_config_10.contract_id);
+                assert_ne!(config.sender_key, registration_contract_config_10.sender_key);
+            } else {
+                assert!(false);
+            }
+
+            if let Some(ContractConfig::Evm(config)) = lotto.get_config_raffle_registrations(11) {
+                assert_eq!(config.rpc, registration_contract_config_11.rpc);
+                assert_eq!(config.contract_id, registration_contract_config_11.contract_id);
+                assert_ne!(config.sender_key, registration_contract_config_11.sender_key);
+            } else {
+                assert!(false);
+            }
+
+
+        }
+
+        #[ink::test]
         #[ignore = "The target contract must be deployed on the Substrate node and a random number request must be submitted"]
         fn answer_request() {
             let _ = env_logger::try_init();
@@ -695,8 +789,6 @@ mod lotto_draw_multichain {
             ink::env::debug_println!("attestor address: {attestor_address:02x?}");
             let attestor_ecdsa_address = lotto.get_attest_ecdsa_address_substrate();
             ink::env::debug_println!("attestor ecdsa address: {attestor_ecdsa_address:02x?}");
-            let sender_address = lotto.get_sender_address_raffle_registration(10);
-            ink::env::debug_println!("sender address 10: {sender_address:02x?}");
 
             let r = lotto.answer_request().expect("failed to answer request");
             ink::env::debug_println!("answer request: {r:?}");
