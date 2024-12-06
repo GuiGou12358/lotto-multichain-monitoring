@@ -483,9 +483,6 @@ mod lotto_draw_multichain {
                     return Err(ContractError::EvmRaffleManagerNotImplemented)
                 }
             };
-
-            // TODO check if the manager can do it before sending the tx
-
             // send the request to the manager
             client.action(Action::Reply(LottoManagerResponseMessage::CloseRegistrations().encode()));
 
@@ -553,41 +550,6 @@ mod lotto_draw_multichain {
             let result = draw.get_numbers(contract_id, draw_number, hashes)?;
             Ok(result)
         }
-
-        /*
-               fn inner_complete_all_raffles(
-                   &self,
-                   draw_number: DrawNumber,
-               ) -> Result<(bool, Vec<lotto_draw_logic::types::Hash>)> {
-                   info!("Synchronize raffle {raffle_id} - complete all raffles");
-
-                   let indexer = Indexer::new(self.get_indexer_url())?;
-                   let hashes = indexer.query_hashes(draw_number)?;
-
-                   let expected_nb_hashes = self
-                       .secondary_consumers_keys
-                       .len()
-                       .checked_add(1)
-                       .ok_or(AddOverFlow)?;
-                   if hashes.len() == expected_nb_hashes {
-                       // we already have all hashes, it means all raffles are completed
-                       return Ok((true, hashes));
-                   }
-
-                   for (_i, key) in self.secondary_consumers_keys.iter().enumerate() {
-                       // TODO complete the contract raffle only if we don't have the hash
-
-                       // get the config linked to this contract
-                       let config = self.secondary_consumers.get(key);
-                       // complete the raffle
-                       let contract = EvmContract::new(config)?;
-                       contract.complete_raffle(raffle_id, &self.attest_key)?;
-                   }
-
-                   // we have to wait
-                   Ok((false, hashes))
-               }
-        */
 
         /// Returns BadOrigin error if the caller is not the owner
         fn ensure_owner(&self) -> Result<()> {
