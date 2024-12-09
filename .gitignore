@@ -1,4 +1,8 @@
-/.idea/
+/.idea/.gitignore
+/.idea/lotto-evm.iml
+/.idea/misc.xml
+/.idea/modules.xml
+/.idea/vcs.xml
 /ui/node_modules/
 /ui/package-lock.json
 
