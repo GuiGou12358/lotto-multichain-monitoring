@@ -3,7 +3,7 @@
 /.idea/misc.xml
 /.idea/modules.xml
 /.idea/vcs.xml
+/.idea/lotto-multichain-monitoring.iml
+/ui/build/
 /ui/node_modules/
 /ui/package-lock.json
-
-
