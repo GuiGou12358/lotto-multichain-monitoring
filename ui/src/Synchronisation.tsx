@@ -8,6 +8,7 @@ export function Synchronisation( {rpcManagerContract, addressManagerContract, rp
   const [isEnabledSynchronization, enableSynchronization] = useState(false);
   const [inProgress, setInProgress] = useState(false);
   const [nextClosingRegistrations, setNextClosingRegistrations] = useState(0);
+  const [canCloseRegistrations, setCanCloseRegistrations] = useState(false);
   const [currentBlock, setCurrentBlock] = useState(0);
 
   const raffleManager = new RaffleManagerWasm(rpcManagerContract, addressManagerContract);
@@ -21,6 +22,8 @@ export function Synchronisation( {rpcManagerContract, addressManagerContract, rp
 
       setCurrentBlock(await raffleManager.getCurrentBlock());
       setNextClosingRegistrations(await raffleManager.getNextClosingRegistrations());
+      const canCloseRegistrations = await raffleManager.canCloseRegistrations();
+      setCanCloseRegistrations(canCloseRegistrations);
 
       if (!isEnabledSynchronization){
         setInProgress(false);
@@ -28,7 +31,6 @@ export function Synchronisation( {rpcManagerContract, addressManagerContract, rp
       }
 
       const hasPendingMessage = await raffleManager.hasPendingMessage();
-      const canCloseRegistrations = await raffleManager.canCloseRegistrations();
       setInProgress(hasPendingMessage || canCloseRegistrations);
 
       if (hasPendingMessage) {
@@ -90,10 +92,12 @@ export function Synchronisation( {rpcManagerContract, addressManagerContract, rp
         Enable synchronisation
       </text>
       <text x="200" y="775" fill="white" fontSize="14">
-        Closing the registration
-        in {nextClosingRegistrations > currentBlock ? nextClosingRegistrations - currentBlock : '-'} blocks (ie at
-        block: {nextClosingRegistrations > currentBlock ? nextClosingRegistrations : '-'}, current
-        block: {currentBlock})
+        {canCloseRegistrations ?
+          "The draw can start ! Please enable synchronisation to start it."
+          : "Closing the registration in " +
+          ((nextClosingRegistrations > currentBlock) ? nextClosingRegistrations - currentBlock : '-')
+          + " blocks (ie at block: " + nextClosingRegistrations + ", current block: " + currentBlock + ")"
+        }
       </text>
     </>
   );
