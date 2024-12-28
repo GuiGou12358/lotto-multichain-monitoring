@@ -24,13 +24,13 @@ export class RaffleManagerWasm {
   }
 
   public async getStatus(): Promise<string> {
-    const result = await query(this.contract, 'raffleManager::getStatus');
+    const result = (await query(this.contract, 'raffleManager::getStatus')).ok;
     console.debug('Status for manager %s (%s): %s', this.address, this.rpc, result);
     return result;
   }
 
   public async getDrawNumber(): Promise<string> {
-    const result = await query(this.contract, 'raffleManager::getDrawNumber');
+    const result = (await query(this.contract, 'raffleManager::getDrawNumber')).ok;
     console.debug('Draw Number for manager %s (%s): %s', this.address, this.rpc, result);
     return result;
   }
