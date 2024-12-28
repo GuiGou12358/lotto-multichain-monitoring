@@ -1,6 +1,6 @@
 {
   "source": {
-    "hash": "0x1e3ea57ea03e5a89ce7c6f99c0d21b75699ef913b75b684958d980ad38fe71a6",
+    "hash": "0x324213a53628cc37a7784c4b045bb5cac7432122c0032542d641f96419bfcf9c",
     "language": "ink! 4.3.0",
     "compiler": "rustc 1.80.1",
     "build_info": {
@@ -51,32 +51,32 @@
         "displayName": [
           "Balance"
         ],
-        "type": 16
+        "type": 22
       },
       "blockNumber": {
         "displayName": [
           "BlockNumber"
         ],
-        "type": 32
+        "type": 31
       },
       "chainExtension": {
         "displayName": [
           "ChainExtension"
         ],
-        "type": 41
+        "type": 39
       },
       "hash": {
         "displayName": [
           "Hash"
         ],
-        "type": 39
+        "type": 37
       },
       "maxEventTopics": 4,
       "timestamp": {
         "displayName": [
           "Timestamp"
         ],
-        "type": 40
+        "type": 38
       }
     },
     "events": [],
@@ -194,52 +194,6 @@
         "args": [],
         "default": false,
         "docs": [
-          " Gets the sender address used by this rollup (in case of meta-transaction)"
-        ],
-        "label": "get_sender_address_raffle_manager",
-        "mutates": false,
-        "payable": false,
-        "returnType": {
-          "displayName": [
-            "ink",
-            "MessageResult"
-          ],
-          "type": 15
-        },
-        "selector": "0xd416cd11"
-      },
-      {
-        "args": [
-          {
-            "label": "contract_id",
-            "type": {
-              "displayName": [
-                "RegistrationContractId"
-              ],
-              "type": 16
-            }
-          }
-        ],
-        "default": false,
-        "docs": [
-          " Gets the sender address used by this rollup (in case of meta-transaction)"
-        ],
-        "label": "get_sender_address_raffle_registration",
-        "mutates": false,
-        "payable": false,
-        "returnType": {
-          "displayName": [
-            "ink",
-            "MessageResult"
-          ],
-          "type": 15
-        },
-        "selector": "0x3a29806b"
-      },
-      {
-        "args": [],
-        "default": false,
-        "docs": [
           " Gets the config of the target consumer contract"
         ],
         "label": "get_config_raffle_manager",
@@ -250,7 +204,7 @@
             "ink",
             "MessageResult"
           ],
-          "type": 17
+          "type": 15
         },
         "selector": "0x71eeba6a"
       },
@@ -262,7 +216,7 @@
               "displayName": [
                 "RegistrationContractId"
               ],
-              "type": 16
+              "type": 22
             }
           }
         ],
@@ -278,7 +232,7 @@
             "ink",
             "MessageResult"
           ],
-          "type": 17
+          "type": 15
         },
         "selector": "0xd1eef7df"
       },
@@ -290,7 +244,7 @@
               "displayName": [
                 "Option"
               ],
-              "type": 18
+              "type": 16
             }
           }
         ],
@@ -318,7 +272,7 @@
               "displayName": [
                 "RegistrationContractId"
               ],
-              "type": 16
+              "type": 22
             }
           },
           {
@@ -327,7 +281,7 @@
               "displayName": [
                 "Option"
               ],
-              "type": 18
+              "type": 16
             }
           }
         ],
@@ -359,7 +313,7 @@
             "ink",
             "MessageResult"
           ],
-          "type": 24
+          "type": 23
         },
         "selector": "0xb7f24d9f"
       },
@@ -433,7 +387,7 @@
             "ink",
             "MessageResult"
           ],
-          "type": 26
+          "type": 25
         },
         "selector": "0x2a5bcd75"
       },
@@ -451,7 +405,7 @@
             "ink",
             "MessageResult"
           ],
-          "type": 30
+          "type": 29
         },
         "selector": "0x09bfb935"
       },
@@ -463,16 +417,16 @@
               "displayName": [
                 "DrawNumber"
               ],
-              "type": 32
+              "type": 31
             }
           },
           {
-            "label": "hashes",
+            "label": "salt",
             "type": {
               "displayName": [
-                "Vec"
+                "Salt"
               ],
-              "type": 33
+              "type": 9
             }
           },
           {
@@ -490,7 +444,7 @@
               "displayName": [
                 "Number"
               ],
-              "type": 34
+              "type": 32
             }
           },
           {
@@ -499,7 +453,7 @@
               "displayName": [
                 "Number"
               ],
-              "type": 34
+              "type": 32
             }
           },
           {
@@ -508,7 +462,7 @@
               "displayName": [
                 "Vec"
               ],
-              "type": 35
+              "type": 33
             }
           }
         ],
@@ -525,7 +479,7 @@
             "ink",
             "MessageResult"
           ],
-          "type": 36
+          "type": 34
         },
         "selector": "0x810aabee"
       }
@@ -1403,38 +1357,42 @@
               },
               {
                 "index": 14,
-                "name": "IndexerNotConfigured"
+                "name": "NoSalt"
               },
               {
                 "index": 15,
-                "name": "HttpRequestFailed"
+                "name": "IndexerNotConfigured"
               },
               {
                 "index": 16,
-                "name": "InvalidResponseBody"
+                "name": "HttpRequestFailed"
               },
               {
                 "index": 17,
-                "name": "InvalidSs58Address"
+                "name": "InvalidResponseBody"
               },
               {
                 "index": 18,
-                "name": "RaffleConfigInvalid"
+                "name": "InvalidSs58Address"
               },
               {
                 "index": 19,
-                "name": "MinGreaterThanMax"
+                "name": "RaffleConfigInvalid"
               },
               {
                 "index": 20,
-                "name": "AddOverFlow"
+                "name": "MinGreaterThanMax"
               },
               {
                 "index": 21,
-                "name": "SubOverFlow"
+                "name": "AddOverFlow"
               },
               {
                 "index": 22,
+                "name": "SubOverFlow"
+              },
+              {
+                "index": 23,
                 "name": "DivByZero"
               }
             ]
@@ -1498,7 +1456,7 @@
               {
                 "fields": [
                   {
-                    "type": 8
+                    "type": 16
                   }
                 ],
                 "index": 0,
@@ -1519,7 +1477,7 @@
         "params": [
           {
             "name": "T",
-            "type": 8
+            "type": 16
           },
           {
             "name": "E",
@@ -1535,56 +1493,6 @@
       "id": 16,
       "type": {
         "def": {
-          "primitive": "u128"
-        }
-      }
-    },
-    {
-      "id": 17,
-      "type": {
-        "def": {
-          "variant": {
-            "variants": [
-              {
-                "fields": [
-                  {
-                    "type": 18
-                  }
-                ],
-                "index": 0,
-                "name": "Ok"
-              },
-              {
-                "fields": [
-                  {
-                    "type": 6
-                  }
-                ],
-                "index": 1,
-                "name": "Err"
-              }
-            ]
-          }
-        },
-        "params": [
-          {
-            "name": "T",
-            "type": 18
-          },
-          {
-            "name": "E",
-            "type": 6
-          }
-        ],
-        "path": [
-          "Result"
-        ]
-      }
-    },
-    {
-      "id": 18,
-      "type": {
-        "def": {
           "variant": {
             "variants": [
               {
@@ -1594,7 +1502,7 @@
               {
                 "fields": [
                   {
-                    "type": 19
+                    "type": 17
                   }
                 ],
                 "index": 1,
@@ -1606,7 +1514,7 @@
         "params": [
           {
             "name": "T",
-            "type": 19
+            "type": 17
           }
         ],
         "path": [
@@ -1615,7 +1523,7 @@
       }
     },
     {
-      "id": 19,
+      "id": 17,
       "type": {
         "def": {
           "variant": {
@@ -1623,7 +1531,7 @@
               {
                 "fields": [
                   {
-                    "type": 20,
+                    "type": 18,
                     "typeName": "WasmContractConfig"
                   }
                 ],
@@ -1633,7 +1541,7 @@
               {
                 "fields": [
                   {
-                    "type": 22,
+                    "type": 20,
                     "typeName": "EvmContractConfig"
                   }
                 ],
@@ -1651,7 +1559,7 @@
       }
     },
     {
-      "id": 20,
+      "id": 18,
       "type": {
         "def": {
           "composite": {
@@ -1678,7 +1586,7 @@
               },
               {
                 "name": "sender_key",
-                "type": 21,
+                "type": 19,
                 "typeName": "Option<[u8; 32]>"
               }
             ]
@@ -1692,7 +1600,7 @@
       }
     },
     {
-      "id": 21,
+      "id": 19,
       "type": {
         "def": {
           "variant": {
@@ -1725,7 +1633,7 @@
       }
     },
     {
-      "id": 22,
+      "id": 20,
       "type": {
         "def": {
           "composite": {
@@ -1737,12 +1645,12 @@
               },
               {
                 "name": "contract_id",
-                "type": 23,
+                "type": 21,
                 "typeName": "EvmContractId"
               },
               {
                 "name": "sender_key",
-                "type": 21,
+                "type": 19,
                 "typeName": "Option<[u8; 32]>"
               }
             ]
@@ -1756,7 +1664,7 @@
       }
     },
     {
-      "id": 23,
+      "id": 21,
       "type": {
         "def": {
           "array": {
@@ -1767,7 +1675,15 @@
       }
     },
     {
-      "id": 24,
+      "id": 22,
+      "type": {
+        "def": {
+          "primitive": "u128"
+        }
+      }
+    },
+    {
+      "id": 23,
       "type": {
         "def": {
           "variant": {
@@ -1775,7 +1691,7 @@
               {
                 "fields": [
                   {
-                    "type": 25
+                    "type": 24
                   }
                 ],
                 "index": 0,
@@ -1796,7 +1712,7 @@
         "params": [
           {
             "name": "T",
-            "type": 25
+            "type": 24
           },
           {
             "name": "E",
@@ -1809,7 +1725,7 @@
       }
     },
     {
-      "id": 25,
+      "id": 24,
       "type": {
         "def": {
           "variant": {
@@ -1842,7 +1758,7 @@
       }
     },
     {
-      "id": 26,
+      "id": 25,
       "type": {
         "def": {
           "variant": {
@@ -1850,7 +1766,7 @@
               {
                 "fields": [
                   {
-                    "type": 27
+                    "type": 26
                   }
                 ],
                 "index": 0,
@@ -1871,7 +1787,7 @@
         "params": [
           {
             "name": "T",
-            "type": 27
+            "type": 26
           },
           {
             "name": "E",
@@ -1884,7 +1800,7 @@
       }
     },
     {
-      "id": 27,
+      "id": 26,
       "type": {
         "def": {
           "variant": {
@@ -1892,7 +1808,7 @@
               {
                 "fields": [
                   {
-                    "type": 28
+                    "type": 27
                   }
                 ],
                 "index": 0,
@@ -1913,7 +1829,7 @@
         "params": [
           {
             "name": "T",
-            "type": 28
+            "type": 27
           },
           {
             "name": "E",
@@ -1926,12 +1842,23 @@
       }
     },
     {
-      "id": 28,
+      "id": 27,
       "type": {
         "def": {
           "sequence": {
-            "type": 29
+            "type": 28
           }
+        }
+      }
+    },
+    {
+      "id": 28,
+      "type": {
+        "def": {
+          "tuple": [
+            22,
+            8
+          ]
         }
       }
     },
@@ -1939,23 +1866,12 @@
       "id": 29,
       "type": {
         "def": {
-          "tuple": [
-            16,
-            8
-          ]
-        }
-      }
-    },
-    {
-      "id": 30,
-      "type": {
-        "def": {
           "variant": {
             "variants": [
               {
                 "fields": [
                   {
-                    "type": 31
+                    "type": 30
                   }
                 ],
                 "index": 0,
@@ -1976,7 +1892,7 @@
         "params": [
           {
             "name": "T",
-            "type": 31
+            "type": 30
           },
           {
             "name": "E",
@@ -1989,7 +1905,7 @@
       }
     },
     {
-      "id": 31,
+      "id": 30,
       "type": {
         "def": {
           "variant": {
@@ -2031,10 +1947,18 @@
       }
     },
     {
-      "id": 32,
+      "id": 31,
       "type": {
         "def": {
           "primitive": "u32"
+        }
+      }
+    },
+    {
+      "id": 32,
+      "type": {
+        "def": {
+          "primitive": "u16"
         }
       }
     },
@@ -2043,7 +1967,7 @@
       "type": {
         "def": {
           "sequence": {
-            "type": 1
+            "type": 32
           }
         }
       }
@@ -2052,30 +1976,12 @@
       "id": 34,
       "type": {
         "def": {
-          "primitive": "u16"
-        }
-      }
-    },
-    {
-      "id": 35,
-      "type": {
-        "def": {
-          "sequence": {
-            "type": 34
-          }
-        }
-      }
-    },
-    {
-      "id": 36,
-      "type": {
-        "def": {
           "variant": {
             "variants": [
               {
                 "fields": [
                   {
-                    "type": 37
+                    "type": 35
                   }
                 ],
                 "index": 0,
@@ -2096,7 +2002,7 @@
         "params": [
           {
             "name": "T",
-            "type": 37
+            "type": 35
           },
           {
             "name": "E",
@@ -2109,7 +2015,7 @@
       }
     },
     {
-      "id": 37,
+      "id": 35,
       "type": {
         "def": {
           "variant": {
@@ -2117,7 +2023,7 @@
               {
                 "fields": [
                   {
-                    "type": 38
+                    "type": 36
                   }
                 ],
                 "index": 0,
@@ -2138,7 +2044,7 @@
         "params": [
           {
             "name": "T",
-            "type": 38
+            "type": 36
           },
           {
             "name": "E",
@@ -2151,7 +2057,7 @@
       }
     },
     {
-      "id": 38,
+      "id": 36,
       "type": {
         "def": {
           "primitive": "bool"
@@ -2159,7 +2065,7 @@
       }
     },
     {
-      "id": 39,
+      "id": 37,
       "type": {
         "def": {
           "composite": {
@@ -2179,7 +2085,7 @@
       }
     },
     {
-      "id": 40,
+      "id": 38,
       "type": {
         "def": {
           "primitive": "u64"
@@ -2187,7 +2093,7 @@
       }
     },
     {
-      "id": 41,
+      "id": 39,
       "type": {
         "def": {
           "variant": {}
