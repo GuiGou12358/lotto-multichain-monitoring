@@ -72,26 +72,26 @@ export function Synchronisation( {rpcManagerContract, addressManagerContract, rp
           </stop>
         </linearGradient>
       </defs>
-      <rect x="180" y="700" width="500" height="50"
+      <rect x="180" y="850" width="500" height="50"
             fill={isEnabledSynchronization && inProgress ? "url(#animatedGradient)" : "gray"}/>
-      <text x="430" y="725" fill="white" fontSize="14" textAnchor="middle" dominantBaseline="middle">
+      <text x="430" y="875" fill="white" fontSize="14" textAnchor="middle" dominantBaseline="middle">
         {!isEnabledSynchronization ? "Synchronisation disabled"
           : inProgress ? "Synchronisation in progress - communication with smart contracts"
             : "Waiting synchronisation"}
       </text>
       <a href={explorerCommunicatingContract + addressCommunicatingContract} target="_blank" rel="noreferrer noopener">
-        <text x="830" y="740" fill="black" fontSize="14" textAnchor="middle" dominantBaseline="middle">
+        <text x="830" y="890" fill="black" fontSize="14" textAnchor="middle" dominantBaseline="middle">
           Via a contract on Phala testnet
         </text>
       </a>
-      <rect x="720" y="710" width="20" height="20" fill="white" stroke={"black"}
+      <rect x="720" y="860" width="20" height="20" fill="white" stroke={"black"}
             onClick={enableSynchronisation}/>
-      <path d="M722 715 L732 725 L740 710" stroke={isEnabledSynchronization ? "black" : "none"} strokeWidth="3"
+      <path d="M722 865 L732 875 L740 860" stroke={isEnabledSynchronization ? "black" : "none"} strokeWidth="3"
             fill="none"/>
-      <text x="750" y="725" fill="white" fontSize="14">
+      <text x="750" y="875" fill="white" fontSize="14">
         Enable synchronisation
       </text>
-      <text x="200" y="775" fill="white" fontSize="14">
+      <text x="200" y="925" fill="white" fontSize="14">
         {canCloseRegistrations ?
           "The draw can start ! Please enable synchronisation to start it."
           : "Closing the registration in " +

@@ -8,20 +8,20 @@ import {
 import {Synchronisation} from "./Synchronisation";
 
 const rpcShibuya = "wss://rpc.shibuya.astar.network";
-const managerAddress = "YuCwFXie1QX7pPyvL8dHYGCX6gpCPB4aWchzb2bSYSgdrvu";
-const registration1Address ="ZkMmwcAsCuFPB13kfXH6aQiJYAfnQYC2qMiK5h1mGKsMX86";
+const managerAddress = "baB95cq8LN1Bzafv29M88b3hj57WiNuQ7aZz9FJDzdMhPE2";
+const registration1Address ="bKFW6HcX4GE6LkAq3464EaSoQdnSy9HiMXgKhAVu3bSK1oe";
 const rpcMoonbase = "https://rpc.api.moonbase.moonbeam.network";
-const registration2Address = "0x991926D5ca21EF2938B5BAffbf4EC24fB55e205e";
+const registration2Address = "0xA50d6F87E90A28c5b594d262469c1B93c0C2f874";
 const rpcMinato = "https://rpc.minato.soneium.org";
-const registration3Address = "0xA8AE9c3F7bc784Ccd1E6013c59A233600C6dE90A";
+const registration3Address = "0xBFaFd55C6Cc933174308B461C0b1DD5379cc7152";
 const rpcPhala = "wss://poc6.phala.network/ws";
-const pinkContractAddress = "0x05768976f9f4bb60355ae65d55adf7ae19fa5e7a379dfe084a231a80850bdba7";
+const pinkContractAddress = "0x9ded0fa7da38f03a7fd6128f92055afb926176bea254a9e29ccbc1acdc649318";
 
 export default function App() {
   return (
     <div className="App">
       <header className="App-header">
-        <svg width="1000" height="800">
+        <svg width="1000" height="1000">
           <LegendManagerWorkflow cx={0}/>
           <ManagerWorkflow cx={250} rpc={rpcShibuya} address={managerAddress} chain={"Astar testnet"}
                            explorer={"https://shibuya.subscan.io/wasm_contract/"}

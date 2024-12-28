@@ -8,7 +8,8 @@ let wasmStatuses = new Map<string, number>([
   ["Started", 1],
   ["RegistrationsOpen", 2],
   ["RegistrationsClosed", 3],
-  ["ResultsReceived", 4],
+  ["SaltGenerated", 4],
+  ["ResultsReceived", 5],
 ]);
 
 function getStatusColor(current : string, expected : number){
@@ -22,7 +23,7 @@ function getStatusColor(current : string, expected : number){
 function ParticipationWorkflow({cx, status, drawNumber, chain, explorer, address}) {
   return (
     <>
-      <a href={explorer+address} target="_blank" rel="noreferrer noopener">
+      <a href={explorer + address} target="_blank" rel="noreferrer noopener">
         <text x={cx} y={cy} className="contract">
           <tspan x={cx - 30} dy={15}>Participation</tspan>
           <tspan x={cx - 20} dy={20} fill={"black"}>{chain}</tspan>
@@ -52,16 +53,25 @@ function ParticipationWorkflow({cx, status, drawNumber, chain, explorer, address
           <path d="M 0 0 L 10 5 L 0 10 Z" fill="black"></path>
         </marker>
       </defs>
+
       <circle cx={cx} cy={5 * cy} r={r} fill={getStatusColor(status, 3)}></circle>
-      <line x1={cx} y1={5 * cy + r} x2={cx} y2={7 * cy - r - 5} stroke="black" marker-end="url(#arrowhead)"></line>
+      <line x1={cx} y1={5 * cy + r} x2={cx} y2={6 * cy - r - 5} stroke="black" marker-end="url(#arrowhead)"></line>
       <defs>
         <marker id="arrowhead" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto">
           <path d="M 0 0 L 10 5 L 0 10 Z" fill="black"></path>
         </marker>
       </defs>
-      <circle cx={cx} cy={7 * cy} r={r} fill={getStatusColor(status, 4)}></circle>
 
-      <text x={cx} y={8 * cy} fontSize={fontSize} fill={legendColor}>{drawNumber}</text>
+      <circle cx={cx} cy={6 * cy} r={r} fill={getStatusColor(status, 4)}></circle>
+      <line x1={cx} y1={6 * cy + r} x2={cx} y2={9 * cy - r - 5} stroke="black" marker-end="url(#arrowhead)"></line>
+      <defs>
+        <marker id="arrowhead" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M 0 0 L 10 5 L 0 10 Z" fill="black"></path>
+        </marker>
+      </defs>
+      <circle cx={cx} cy={9 * cy} r={r} fill={getStatusColor(status, 5)}></circle>
+
+      <text x={cx} y={10 * cy} fontSize={fontSize} fill={legendColor}>{drawNumber}</text>
 
     </>
   );
@@ -73,16 +83,18 @@ export function LegendParticipationWorkflow({cx}: { cx: number }) {
     <>
       <text x={cx} y={2 * cy + 7} fontSize={fontSize} fill={legendColor}>Instantiated</text>
       <text x={cx} y={3 * cy + 7} fontSize={fontSize} fill={legendColor}>Configured</text>
-      <text x={cx} y={4 * cy + 7} fontSize={fontSize} fill={legendColor}>Registrations open (the user can participate)</text>
+      <text x={cx} y={4 * cy + 7} fontSize={fontSize} fill={legendColor}>Registrations open (the user can participate)
+      </text>
       <text x={cx} y={5 * cy + 7} fontSize={fontSize} fill={legendColor}>Registrations closed</text>
-      <text x={cx} y={7 * cy + 7} fontSize={fontSize} fill={legendColor}>Results known</text>
+      <text x={cx} y={6 * cy + 7} fontSize={fontSize} fill={legendColor}>Salt Generated</text>
+      <text x={cx} y={9 * cy + 7} fontSize={fontSize} fill={legendColor}>Results known</text>
     </>
   );
 }
 
-export function ParticipationWorkflowWasm({ cx, rpc, address, chain, explorer }) {
+export function ParticipationWorkflowWasm({cx, rpc, address, chain, explorer}) {
 
-  const[status, setStatus] = useState("");
+  const [status, setStatus] = useState("");
   const[drawNumber, setDrawNumber] = useState("");
 
   const contract = new RaffleRegistrationWasm(rpc, address);
