@@ -8,14 +8,14 @@ import {
 import {Synchronisation} from "./Synchronisation";
 
 const rpcShibuya = "wss://rpc.shibuya.astar.network";
-const managerAddress = "baB95cq8LN1Bzafv29M88b3hj57WiNuQ7aZz9FJDzdMhPE2";
-const registration1Address ="bKFW6HcX4GE6LkAq3464EaSoQdnSy9HiMXgKhAVu3bSK1oe";
+const managerAddress = "acKRTkuTsGESFmsy3wcvWTyfRW6xL4QY1gMhjNVtD5yUB7d";
+const registration1Address ="bSm4f7WjbxFMbo4fRUGw7oHvva65P8m8jCqedFsXAwUJx7V";
 const rpcMoonbase = "https://rpc.api.moonbase.moonbeam.network";
-const registration2Address = "0xA50d6F87E90A28c5b594d262469c1B93c0C2f874";
+const registration2Address = "0x987461a5eF325f9f217D2b777CeDCf3b9c4D62d5";
 const rpcMinato = "https://rpc.minato.soneium.org";
-const registration3Address = "0xBFaFd55C6Cc933174308B461C0b1DD5379cc7152";
+const registration3Address = "0x04d884675E5790721cb5F24D41D460E921C08f17";
 const rpcPhala = "wss://poc6.phala.network/ws";
-const pinkContractAddress = "0x9ded0fa7da38f03a7fd6128f92055afb926176bea254a9e29ccbc1acdc649318";
+const pinkContractAddress = "0x269bdbdef7285a1bdba7f68c79c1165705f20508e5e7c545b4fd10a6f345523e";
 
 export default function App() {
   return (
